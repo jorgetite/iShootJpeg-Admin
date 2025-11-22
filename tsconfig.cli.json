@@ -1,0 +1,15 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "module": "ESNext",
+        "outDir": "dist/cli",
+        "noEmit": false,
+        "types": [
+            "node"
+        ]
+    },
+    "include": [
+        "src/cli/**/*",
+        "src/core/**/*"
+    ]
+}

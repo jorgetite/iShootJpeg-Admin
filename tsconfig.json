@@ -1,0 +1,33 @@
+{
+    "extends": "./.nuxt/tsconfig.json",
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "Node",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "baseUrl": ".",
+        "paths": {
+            "~/*": [
+                "./src/web/*"
+            ],
+            "@/*": [
+                "./src/web/*"
+            ],
+            "#/*": [
+                "./src/core/*"
+            ]
+        }
+    },
+    "include": [
+        "src/**/*",
+        "nuxt.config.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        ".nuxt",
+        "dist"
+    ]
+}
