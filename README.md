@@ -27,6 +27,102 @@
 - **Logging:** Structured JSON logging
 - **Configuration:** Environment variable-based
 
+## Database Design
+
+### 1. **Full Normalization (3NF)**
+- Eliminates data duplication
+- Enables referential integrity
+- Facilitates filtering and querying
+
+### 2. **EAV Pattern for Settings**
+- `setting_definitions`: Schema definition for all possible settings
+- `setting_enum_values`: Valid values for enum-type settings
+- `recipe_setting_values`: Actual values per recipe
+- `recipe_setting_ranges`: Support for range-based settings (ISO, exposure bias)
+- `system_settings`: Links settings to specific camera systems
+
+**Benefits:**
+- Easy to add new settings without schema changes
+- Different camera systems can have different settings
+- Type safety through `data_type` field
+- Validation through `setting_enum_values`
+
+### 3. **Enhanced Data Integrity**
+- **Foreign key actions**: Proper CASCADE/RESTRICT rules
+- **CHECK constraints**: Enforce valid values at DB level
+- **NOT NULL constraints**: Required fields clearly marked
+- **UNIQUE constraints**: Prevent duplicates (slugs, names)
+- **Positive value checks**: Prevent negative counts/dimensions
+
+### 4. **Performance Optimization**
+- **Strategic indexes** on foreign keys and common query patterns
+- **Partial indexes** for boolean flags (is_featured, is_active)
+- **Descending indexes** for sorting (created_at, view_count)
+- **Composite indexes** where needed
+
+### 5. **Slug Fields for SEO**
+- Added `slug` fields to recipes, authors, tags
+- Supports SEO-friendly URLs
+- Unique constraints prevent conflicts
+
+### 6. **Metadata & Audit Fields**
+- `created_at` / `updated_at` timestamps
+- `is_active` flags for soft deletes
+- `sort_order` for UI control
+- `usage_count` for tags (denormalized for performance)
+
+### 7. **Attribution & Source Tracking**
+- `source_type` distinguishes original vs curated vs community
+- `source_url` maintains attribution
+- `is_verified` for trusted authors
+
+### 8. **Image Management**
+- UUID primary keys for distributed systems
+- File metadata (dimensions, size)
+- Accessibility (alt_text)
+- Flexible type system (thumbnail, sample, before, after)
+
+### 9. **Removed User Engagement Fields**
+- Removed `rating` from recipes (per your Phase 3 scope)
+- Kept `view_count` for internal analytics
+
+### Sample Queries
+
+Here are some common queries this schema enables:
+
+**Find all recipes for Fujifilm X100VI:**
+```sql
+SELECT r.*, cs.name as system_name, cm.name as camera_name
+FROM recipes r
+JOIN camera_systems cs ON r.system_id = cs.id
+LEFT JOIN camera_models cm ON r.camera_model_id = cm.id
+WHERE cm.name = 'X100VI' AND r.is_active = true;
+```
+
+**Get all settings for a recipe:**
+```sql
+SELECT 
+    sd.name as setting_name,
+    sd.data_type,
+    rsv.value,
+    sc.name as category_name
+FROM recipe_setting_values rsv
+JOIN setting_definitions sd ON rsv.setting_definition_id = sd.id
+JOIN setting_categories sc ON sd.category_id = sc.id
+WHERE rsv.recipe_id = 'some-id'
+ORDER BY sc.sort_order, sd.sort_order;
+```
+
+**Find recipes with specific film simulation:**
+```sql
+SELECT r.*, fs.display_name as film_sim_name
+FROM recipes r
+JOIN film_simulations fs ON r.film_simulation_id = fs.id
+WHERE fs.name = 'Classic Chrome'
+AND r.is_active = true
+ORDER BY r.view_count DESC;
+```
+
 ## Design System
 
 User interfaces are designed to be modern and premium, with a dark mode experience. The application uses a custom color palette:
