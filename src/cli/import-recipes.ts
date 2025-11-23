@@ -7,24 +7,37 @@ async function main() {
         options: {
             file: { type: 'string', short: 'f' },
             'dry-run': { type: 'boolean' },
+            'log-dir': { type: 'string' },
             help: { type: 'boolean', short: 'h' },
         },
     });
 
     if (values.help) {
         console.log(`
-Usage: pnpm run cli:import -- --file <path-to-csv> [--dry-run]
+Usage: pnpm run cli:import -- --file <path-to-csv> [options]
 
 Options:
-  -f, --file <path>  Path to the CSV file to import
-      --dry-run      Test import without persisting data (rolls back transaction)
-  -h, --help         Show this help message
+  -f, --file <path>     Path to the CSV file to import (required)
+      --dry-run         Test import without persisting data (rolls back transaction)
+      --log-dir <path>  Directory for log files (default: data/logs)
+  -h, --help            Show this help message
+
+Examples:
+  # Import recipes with default settings
+  pnpm run cli:import -- --file tests/fixtures/recipes.csv
+
+  # Dry-run to test without persisting
+  pnpm run cli:import -- --file tests/fixtures/recipes.csv --dry-run
+
+  # Specify custom log directory
+  pnpm run cli:import -- --file data/imports/recipes.csv --log-dir /custom/logs
   `);
         process.exit(0);
     }
 
     if (!values.file) {
         console.error('Error: --file argument is required.');
+        console.error('Run with --help for usage information.');
         process.exit(1);
     }
 
@@ -34,11 +47,22 @@ Options:
     }
 
     const dryRun = values['dry-run'] ?? false;
-    const importService = new ImportService(process.env.DATABASE_URL, dryRun);
+    const logDir = values['log-dir'] ?? 'data/logs';
+
+    const importService = new ImportService(
+        process.env.DATABASE_URL,
+        dryRun,
+        logDir
+    );
 
     try {
         await importService.connect();
-        await importService.importRecipes(values.file);
+        const report = await importService.importRecipes(values.file);
+
+        // Exit with error code if there were errors
+        if (report.summary.errors > 0 && !dryRun) {
+            process.exit(1);
+        }
     } catch (error) {
         console.error('Import failed:', error);
         process.exit(1);

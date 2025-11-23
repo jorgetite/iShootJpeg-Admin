@@ -574,6 +574,7 @@ INSERT INTO setting_enum_values (setting_definition_id, value, display_label, so
 (22, '40000', 'ISO 40000', 28, true),
 (22, '51200', 'ISO 51200', 29, true),
 (22, '64000', 'ISO 64000', 30, true);
+(22, 'AUTO', 'Auto', 0, true);
 
 -- Same for ISO Max (setting_definition_id = 23)
 INSERT INTO setting_enum_values (setting_definition_id, value, display_label, sort_order, is_active) VALUES
@@ -607,6 +608,7 @@ INSERT INTO setting_enum_values (setting_definition_id, value, display_label, so
 (23, '40000', 'ISO 40000', 28, true),
 (23, '51200', 'ISO 51200', 29, true),
 (23, '64000', 'ISO 64000', 30, true);
+(23, 'AUTO', 'Auto', 0, true);
 
 -- =====================================================
 -- 10. SYSTEM SETTINGS (Fujifilm X-Series)
