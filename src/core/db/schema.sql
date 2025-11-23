@@ -122,8 +122,8 @@ CREATE TABLE IF NOT EXISTS "authors" (
     "slug" varchar(255) NOT NULL,
     "bio" text,
     "website_url" varchar(500),
-    "instagram_handle" varchar(100),
-    "twitter_handle" varchar(100),
+    "social_handle" varchar(60),
+    "social_platform" varchar(30),
     "is_verified" boolean DEFAULT false NOT NULL,
     "created_at" timestamp DEFAULT now() NOT NULL,
     "updated_at" timestamp DEFAULT now() NOT NULL,
@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS "recipe_setting_values" (
     "id" serial PRIMARY KEY,
     "recipe_id" integer NOT NULL,
     "setting_definition_id" integer NOT NULL,
-    "value" varchar(100) NOT NULL, -- Store all values as varchar, parse based on data_type
+    "value" text NOT NULL, -- Changed from varchar(100) to text to handle long values
     "notes" text, -- Optional context for this specific setting
     "created_at" timestamp DEFAULT now() NOT NULL,
     CONSTRAINT "recipe_setting_values_recipe_setting_unique" 
@@ -392,6 +392,18 @@ BEGIN
     RETURN NEW;
 END;
 $$ language 'plpgsql';
+
+-- Schema Updates (Idempotent)
+DO $$
+BEGIN
+    -- Ensure recipe_setting_values.value is text
+    BEGIN
+        ALTER TABLE "recipe_setting_values" ALTER COLUMN "value" TYPE text;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE NOTICE 'Could not alter column value to text: %', SQLERRM;
+    END;
+END $$;
 
 -- Triggers for updated_at
 DO $$
