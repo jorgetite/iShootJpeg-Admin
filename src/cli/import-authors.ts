@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util';
-import { ImportService } from '../core/services/import-service.js';
+import { AuthorImportService } from '../core/services/author-import-service.js';
 
 async function main() {
     const { values } = parseArgs({
@@ -13,10 +13,10 @@ async function main() {
 
     if (values.help) {
         console.log(`
-Usage: pnpm run cli:import -- --file <path-to-csv> [--dry-run]
+Usage: pnpm run cli:import-authors -- --file <path-to-csv> [--dry-run]
 
 Options:
-  -f, --file <path>  Path to the CSV file to import
+  -f, --file <path>  Path to the authors CSV file to import
       --dry-run      Test import without persisting data (rolls back transaction)
   -h, --help         Show this help message
   `);
@@ -34,11 +34,11 @@ Options:
     }
 
     const dryRun = values['dry-run'] ?? false;
-    const importService = new ImportService(process.env.DATABASE_URL, dryRun);
+    const importService = new AuthorImportService(process.env.DATABASE_URL, dryRun);
 
     try {
         await importService.connect();
-        await importService.importRecipes(values.file);
+        await importService.importAuthors(values.file);
     } catch (error) {
         console.error('Import failed:', error);
         process.exit(1);

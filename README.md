@@ -5,6 +5,7 @@
 ## Features
 
 - **Bulk Import** - Import film simulation recipes from CSV files with validation and idempotent processing
+- **Bulk Export** - Export film simulation recipes to JSON object(s) with validation and idempotent processing
 - **Recipe Management** - Full CRUD operations with search and filtering capabilities through a modern web interface
 - **Image Processing** - Automated image optimization and upload to Cloudflare R2 with batch processing support
 
@@ -232,6 +233,12 @@ Run database migrations to set up the schema:
 
 ```bash
 pnpm run db:migrate
+```
+
+Initialize database with Fujifilm data:
+
+```bash
+pnpm run db:init
 ```
 
 ### 5. Start Development

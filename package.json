@@ -10,8 +10,10 @@
         "build:all": "pnpm run build && pnpm run build:cli",
         "preview": "nuxt preview",
         "cli:import": "tsx --env-file=.env src/cli/import-recipes.ts",
+        "cli:import-authors": "tsx --env-file=.env src/cli/import-authors.ts",
         "cli:process-images": "tsx --env-file=.env src/cli/process-images.ts",
         "db:migrate": "tsx --env-file=.env src/cli/db-migrate.ts",
+        "db:init": "tsx --env-file=.env src/cli/init-db.ts",
         "db:test-connection": "tsx --env-file=.env src/cli/test-db-connection.ts",
         "test": "vitest run",
         "test:unit": "vitest run --dir tests/unit",
@@ -27,6 +29,7 @@
     "dependencies": {
         "@aws-sdk/client-s3": "^3.700.0",
         "@shoelace-style/shoelace": "^2.19.0",
+        "csv-parse": "^6.1.0",
         "nuxt": "^3.15.0",
         "pg": "^8.13.0",
         "vue": "^3.5.0",
@@ -35,6 +38,7 @@
     "devDependencies": {
         "@nuxt/eslint": "^0.7.0",
         "@nuxtjs/tailwindcss": "^6.12.0",
+        "@types/csv-parse": "^1.2.5",
         "@types/node": "^22.0.0",
         "@types/pg": "^8.11.0",
         "eslint": "^9.0.0",

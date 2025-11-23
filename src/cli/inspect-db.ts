@@ -16,21 +16,24 @@ async function main() {
         await client.connect();
         console.log('Connected to database.');
 
-        console.log('Checking "authors" table columns:');
-        const authorsRes = await client.query(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'authors';
-    `);
-        console.table(authorsRes.rows);
+        const tables = [
+            'authors',
+            'camera_systems',
+            'camera_models',
+            'sensors',
+            'film_simulations',
+            'style_categories',
+            'recipes',
+            'setting_categories',
+            'setting_definitions',
+            'recipe_setting_values',
+        ];
 
-        console.log('Checking "recipes" table columns:');
-        const recipesRes = await client.query(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'recipes';
-    `);
-        console.table(recipesRes.rows);
+        console.log('Table Counts:');
+        for (const table of tables) {
+            const res = await client.query(`SELECT count(*) FROM "${table}"`);
+            console.log(`${table}: ${res.rows[0].count}`);
+        }
 
         await client.end();
     } catch (error) {
