@@ -273,19 +273,179 @@ All CLI commands are executed via npm scripts. Commands are idempotent and can b
 
 ### Import Recipes from CSV
 
+Import film simulation recipes from CSV files with intelligent transformation and comprehensive error handling.
+
 ```bash
 pnpm run cli:import -- --file=/path/to/recipes.csv
 ```
 
 **Options:**
 - `--file` - Path to CSV file (required)
-- `--batch-size` - Records to process per batch (default: 100)
-- `--dry-run` - Validate without importing
+- `--dry-run` - Validate without importing (recommended for first run)
+- `--log-dir` - Custom directory for error logs and reports (default: `data/logs/`)
 
-**Example:**
+**Examples:**
 ```bash
-pnpm run cli:import -- --file=./data/recipes-2024.csv --batch-size=50
+# Dry-run to validate data
+pnpm run cli:import -- --file=./tests/fixtures/recipes.csv --dry-run
+
+# Actual import
+pnpm run cli:import -- --file=./data/recipes.csv
+
+# Custom log directory
+pnpm run cli:import -- --file=./data/recipes.csv --log-dir=/custom/logs
 ```
+
+#### CSV Format
+
+The CSV file must have the following columns:
+
+| Column | Required | Description | Example |
+|--------|----------|-------------|---------|
+| Creator | Yes | Recipe author name | "Ritchie Roesch" |
+| Name | Yes | Recipe name | "Classic Chrome+" |
+| Type | No | Camera system (auto-inferred) | "Fujifilm" |
+| Color /BW | Yes | Style category | "Color" or "B&W" |
+| Camera | Yes | Camera model | "X-T5" |
+| Sensor | Yes | Sensor name | "X-Trans V HR" |
+| Base | Yes | Film simulation | "Classic Chrome" |
+| Settings | Yes | Recipe settings (multiline) | See below |
+| Published | No | Publication date | "2024-01-15" |
+| URL | No | Source URL | "https://..." |
+
+**Settings Column Format:**
+
+Settings are specified as `Key: Value` pairs, one per line:
+
+```
+Dynamic Range: DR400
+White Balance: Auto
+WB Shift: R+2 B-1
+Highlights: -2
+Shadows: +1
+Color: +4
+Sharpness: 0
+Noise Reduction: -4
+Grain Effect: Weak, Large
+Color Chrome Effect: Strong
+```
+
+#### Intelligent Transformation
+
+The import system automatically handles:
+
+**Setting Name Variations** (case-insensitive):
+- `DR`, `Dynamic Range`, `D-Range` → `Dynamic Range`
+- `WB Offset`, `WB Shift`, `Shift` → `WB Shift Red/Blue`
+- `Highlights`, `Highlight`, `Highlight Tone` → `Highlight Tone`
+- `Exp Comp`, `Exposure Compensation`, `EV` → `Exposure Compensation`
+- `Nr`, `NR`, `Noise Reduction` → `High ISO NR`
+- And 30+ more variations...
+
+**Value Transformations:**
+- `400% D-Range` → `DR400`
+- `Auto WB` → `Auto`
+- `Weak, Large` → `Grain Effect: Weak` + `Grain Effect Size: Large`
+
+**Special Parsers:**
+- **WB Shift**: `R:4 B:-5` → `WB Shift Red: 4`, `WB Shift Blue: -5`
+- **Tone Curve**: `Highlights +2 Shadows -1` → separate settings
+- **ISO Range**: `Auto, up to ISO 3200` → `ISO Max: 3200`
+- **Exposure Comp**: `+1/3 to +2/3` → Min/Max range
+
+**Style Category Variations:**
+- `B&W`, `BW`, `Black & White`, `Monochrome` → `Black & White`
+- `Color`, `Colour` → `Color`
+
+**Auto-Creation:**
+- Authors (with slug generation)
+- Sensors (with type inference: X-Trans, Bayer, etc.)
+- Cameras (with system inference: X-Series, GFX, X-Half)
+- Film Simulations (per camera system)
+
+#### Output Files
+
+After import, the following files are generated in the log directory:
+
+**Error CSV** (`errors-YYYY-MM-DD-HHmmss.csv`):
+- Contains all rows that failed to import
+- Includes row number and detailed error message
+- Can be corrected and re-imported
+
+**Import Report** (`import-report-YYYY-MM-DD-HHmmss.json`):
+```json
+{
+  "timestamp": "2024-11-23T14:00:00.000Z",
+  "inputFile": "recipes.csv",
+  "summary": {
+    "totalRecipes": 159,
+    "successfulImports": 158,
+    "errors": 1
+  },
+  "recipes": {
+    "created": 158,
+    "updated": 0
+  },
+  "newEntries": {
+    "authors": {"146": "John Doe", ...},
+    "sensors": {"12": "X-Trans V HR", ...},
+    "cameras": {},
+    "filmSimulations": {}
+  },
+  "tableStats": [
+    {"table": "recipes", "inserts": 158, "updates": 0},
+    {"table": "recipe_setting_values", "inserts": 1264, "updates": 0}
+  ]
+}
+```
+
+#### Idempotent Operations
+
+The import process is idempotent - you can safely re-run imports:
+- Existing recipes (matched by name + author) are **updated**
+- New recipes are **created**
+- Settings are replaced on update
+- No duplicate entries are created
+
+#### Error Handling
+
+Common errors and solutions:
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Setting not found: XYZ` | Unknown setting name | Check setting name spelling |
+| `Style category not found` | Invalid category | Use "Color", "Black & White", or "Infrared" |
+| `duplicate key constraint` | Recipe already exists | This is expected - recipe will be updated |
+| `null value constraint` | Missing required field | Ensure Creator, Name, Base, Camera, Sensor are provided |
+
+#### Performance
+
+- Processes ~5-10 recipes/second
+- Progress indicators every 100 rows
+- Transaction-based for data integrity
+- Supports files with 1000+ recipes
+
+#### Best Practices
+
+1. **Always run dry-run first:**
+   ```bash
+   pnpm run cli:import -- --file=data.csv --dry-run
+   ```
+
+2. **Review error CSV** if any errors occur
+
+3. **Check import report** for statistics
+
+4. **Reset sequences** after database initialization:
+   ```bash
+   pnpm exec tsx --env-file=.env src/cli/reset-sequences.ts
+   ```
+
+5. **Backup database** before large imports:
+   ```bash
+   pg_dump ishootjpeg > backup-$(date +%Y%m%d).sql
+   ```
+
 
 ### Process and Upload Images
 
