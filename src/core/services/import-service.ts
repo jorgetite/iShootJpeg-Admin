@@ -90,6 +90,7 @@ export class ImportService {
     private dryRun: boolean;
     private logDir: string;
     private timestamp: string;
+    private truncate: boolean;
 
     // Tracking
     private stats: ImportStats;
@@ -101,10 +102,11 @@ export class ImportService {
     private settingDefinitionsCache: Map<string, any> | null = null;
     private styleCategoriesCache: Map<string, number> | null = null;
 
-    constructor(connectionString: string, dryRun: boolean = false, logDir: string = 'data/logs') {
+    constructor(connectionString: string, dryRun: boolean = false, logDir: string = 'data/logs', truncate: boolean = false) {
         this.client = new pg.Client({ connectionString });
         this.dryRun = dryRun;
         this.logDir = logDir;
+        this.truncate = truncate;
         this.timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
         this.stats = {
@@ -140,6 +142,10 @@ export class ImportService {
     // Main Import Method
     // ========================================================================
 
+    private async loadCaches(): Promise<void> {
+        await this.loadSettingDefinitionsCache();
+    }
+
     async importRecipes(filePath: string): Promise<ImportReport> {
         const absolutePath = path.resolve(filePath);
         const fileContent = await fs.readFile(absolutePath, 'utf-8');
@@ -150,6 +156,18 @@ export class ImportService {
             trim: true,
         }) as RecipeRow[];
 
+        await this.loadCaches();
+
+        if (this.truncate) {
+            if (this.dryRun) {
+                console.log('⚠️  Skipping truncation in dry-run mode');
+            } else {
+                console.log('🗑️  Truncating recipes tables...');
+                await this.client.query('TRUNCATE TABLE recipes RESTART IDENTITY CASCADE');
+                console.log('✅ Tables truncated and ID sequences reset.\n');
+            }
+        }
+
         this.stats.totalRows = records.length;
         console.log(`\n📦 Found ${records.length} recipes to import.`);
 
@@ -157,49 +175,48 @@ export class ImportService {
             console.log('🔍 DRY RUN MODE: Changes will be rolled back\n');
         }
 
-        try {
-            await this.client.query('BEGIN');
+        // Process each row with its own transaction
+        for (let i = 0; i < records.length; i++) {
+            try {
+                // Start transaction for this recipe
+                await this.client.query('BEGIN');
 
-            // Process each row
-            for (let i = 0; i < records.length; i++) {
-                try {
-                    await this.processRow(records[i], i);
-                    this.stats.successfulImports++;
+                await this.processRow(records[i], i);
 
-                    // Progress indicator every 100 rows
-                    if ((i + 1) % 100 === 0) {
-                        console.log(`  Processed ${i + 1}/${records.length} recipes...`);
-                    }
-                } catch (error: any) {
-                    this.stats.errors++;
-
-                    // Log first error for debugging
-                    if (this.errors.length === 0) {
-                        console.error(`\n⚠️  First error at row ${i + 2}:`, error.message);
-                        console.error(`   Recipe: ${records[i].Name} by ${records[i].Creator}`);
-                    }
-
-                    this.errors.push({
-                        rowNumber: i + 2, // +2 for header and 0-index
-                        csvRow: records[i],
-                        errorMessage: error.message || 'Unknown error',
-                    });
+                // Commit if successful (or rollback if dry-run)
+                if (this.dryRun) {
+                    await this.client.query('ROLLBACK');
+                } else {
+                    await this.client.query('COMMIT');
                 }
-            }
 
-            if (this.dryRun) {
+                this.stats.successfulImports++;
+
+                // Progress indicator every 100 rows
+                if ((i + 1) % 100 === 0) {
+                    console.log(`  Processed ${i + 1}/${records.length} recipes...`);
+                }
+            } catch (error: any) {
+                // Rollback this recipe's transaction
                 await this.client.query('ROLLBACK');
-                console.log('\n✅ DRY RUN completed successfully. All changes rolled back.');
-            } else {
-                await this.client.query('COMMIT');
-                console.log('\n✅ Import completed successfully.');
-            }
 
-        } catch (error) {
-            await this.client.query('ROLLBACK');
-            console.error('\n❌ Import failed:', error);
-            throw error;
+                this.stats.errors++;
+
+                // Log first error for debugging
+                if (this.errors.length === 0) {
+                    console.error(`\n⚠️  First error at row ${i + 2}:`, error.message);
+                    console.error(`   Recipe: ${records[i].Name} by ${records[i].Creator}`);
+                }
+
+                this.errors.push({
+                    rowNumber: i + 2, // +2 for header and 0-index
+                    csvRow: records[i],
+                    errorMessage: error.message || 'Unknown error',
+                });
+            }
         }
+
+        console.log('\n✅ Import completed successfully.');
 
         // Write error file if there are errors
         let errorFilePath: string | null = null;
@@ -231,20 +248,20 @@ export class ImportService {
             throw new Error('Missing required field: Creator, Name, or Base');
         }
 
-        // 1. Lookup or create author
-        const authorId = await this.lookupOrCreateAuthor(row.Creator.trim());
+        // 1. Lookup author (strict matching, no auto-creation)
+        const authorId = await this.lookupAuthor(row.Creator.trim());
 
-        // 2. Lookup or create sensor
-        const sensorId = await this.lookupOrCreateSensor(row.Sensor.trim());
+        // 2. Lookup sensor (strict matching, no auto-creation)
+        const sensorId = await this.lookupSensor(row.Sensor.trim());
 
-        // 3. Lookup or create camera (which infers system)
-        const cameraId = await this.lookupOrCreateCamera(row.Camera.trim(), sensorId);
+        // 3. Lookup camera (strict matching, no auto-creation)
+        const cameraId = await this.lookupCamera(row.Camera.trim());
 
         // 4. Get system from camera
         const systemId = await this.getSystemFromCamera(cameraId);
 
-        // 5. Lookup or create film simulation
-        const filmSimId = await this.lookupOrCreateFilmSimulation(row.Base.trim(), systemId);
+        // 5. Lookup film simulation (strict matching, no auto-creation)
+        const filmSimId = await this.lookupFilmSimulation(row.Base.trim(), systemId);
 
         // 6. Lookup style category (no creation)
         const styleCategoryId = await this.lookupStyleCategory(row['Color /BW'].trim());
@@ -258,14 +275,15 @@ export class ImportService {
         // 8. Parse publish date
         const publishDate = this.parseDate(row.Published);
 
-        // 9. Insert or update recipe
+        // 7. Insert or update recipe
         const recipeId = await this.insertRecipe({
             name: row.Name.trim(),
             authorId,
+            sensorId,
             cameraId,
             filmSimId,
-            styleCategoryId,
-            publishDate,
+            styleCategoryId: styleCategoryId!,
+            publishDate: this.parseDate(row.Published),
             sourceUrl: row.URL?.trim() || null,
         });
 
@@ -279,59 +297,101 @@ export class ImportService {
     // Categorical Data Lookup/Creation
     // ========================================================================
 
-    private async lookupOrCreateAuthor(name: string): Promise<number> {
-        const slug = this.generateSlug(name);
+    private async lookupAuthor(name: string): Promise<number> {
+        const trimmed = name.trim();
 
-        const existing = await this.client.query(
+        // Strategy 1: Exact match by name
+        let result = await this.client.query(
+            'SELECT id FROM authors WHERE name = $1',
+            [trimmed]
+        );
+        if (result.rows.length > 0) return result.rows[0].id;
+
+        // Strategy 2: Case-insensitive match by name
+        result = await this.client.query(
+            'SELECT id FROM authors WHERE LOWER(name) = LOWER($1)',
+            [trimmed]
+        );
+        if (result.rows.length > 0) return result.rows[0].id;
+
+        // Strategy 3: Match by slug
+        const slug = this.generateSlug(trimmed);
+        result = await this.client.query(
             'SELECT id FROM authors WHERE slug = $1',
             [slug]
         );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        if (existing.rows.length > 0) {
-            return existing.rows[0].id;
-        }
-
-        // Create new author
-        const result = await this.client.query(
-            `INSERT INTO authors (name, slug, created_at)
-             VALUES ($1, $2, now())
-             RETURNING id`,
-            [name, slug]
+        // Strategy 4: Fuzzy match - remove spaces, hyphens, special chars from name
+        const normalized = trimmed.toLowerCase().replace(/[\s\-_\.]/g, '');
+        result = await this.client.query(
+            `SELECT id FROM authors 
+             WHERE LOWER(REPLACE(REPLACE(REPLACE(REPLACE(name, ' ', ''), '-', ''), '_', ''), '.', '')) = $1`,
+            [normalized]
         );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        const newId = result.rows[0].id;
-        this.newEntries.authors.set(newId, name);
-        this.trackTableStat('authors', 'insert');
-
-        return newId;
+        // No match found
+        throw new Error(`Author not found: ${name}`);
     }
 
-    private async lookupOrCreateSensor(name: string): Promise<number> {
-        const existing = await this.client.query(
-            'SELECT id FROM sensors WHERE name = $1',
-            [name]
-        );
+    // Map CSV sensor names to Database sensor names
+    private static readonly SENSOR_MAP: Record<string, string> = {
+        'X-Trans V HR': 'X-Trans CMOS 5 HR',
+        'X-Trans V HS': 'X-Trans CMOS 5 BSI',
+        'X-Trans V BSI Stkd': 'X-Trans CMOS 5 BSI',
+        'X-Trans IV': 'X-Trans CMOS IV',
+        'X-Trans III': 'X-Trans CMOS III',
+        'X-Trans II': 'X-Trans CMOS II',
+        'X-Trans II 2/3': 'X-Trans CMOS II', // Assuming mapping to II
+        'X-Trans I': 'X-Trans CMOS I',
+        'Bayer': 'Bayer CMOS APS-C',
+        'BAYER (type unknown)': 'Bayer CMOS APS-C',
+        'BAYER MF 50MP': 'Bayer MF 50',
+        'BAYER MF 100MP': 'Bayer MF 100',
+    };
 
-        if (existing.rows.length > 0) {
-            return existing.rows[0].id;
+    // Map CSV film simulation names to Database names
+    private static readonly FILM_SIM_MAP: Record<string, string> = {
+        'Pro Neg. High': 'Pro Neg. Hi',
+        'Pro Neg. Std': 'Pro Neg. Std', // Ensure this exists
+        'Nostalgic Negative': 'Nostalgic Neg.',
+        'Monochrome': 'Acros', // Often used interchangeably or as base
+        'B&W': 'Monochrome',
+    };
+
+    private async lookupSensor(name: string): Promise<number> {
+        let trimmed = name.trim();
+
+        // Apply mapping if exists
+        if (ImportService.SENSOR_MAP[trimmed]) {
+            trimmed = ImportService.SENSOR_MAP[trimmed];
         }
 
-        // Infer sensor type from name
-        const sensorType = this.inferSensorType(name);
-
-        // Create new sensor
-        const result = await this.client.query(
-            `INSERT INTO sensors (name, type, created_at)
-             VALUES ($1, $2, now())
-             RETURNING id`,
-            [name, sensorType]
+        // Strategy 1: Exact match (case-sensitive)
+        let result = await this.client.query(
+            'SELECT id FROM sensors WHERE name = $1',
+            [trimmed]
         );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        const newId = result.rows[0].id;
-        this.newEntries.sensors.set(newId, name);
-        this.trackTableStat('sensors', 'insert');
+        // Strategy 2: Case-insensitive match
+        result = await this.client.query(
+            'SELECT id FROM sensors WHERE LOWER(name) = LOWER($1)',
+            [trimmed]
+        );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        return newId;
+        // Strategy 3: Fuzzy match - remove spaces, hyphens, special chars
+        const normalized = trimmed.toLowerCase().replace(/[\s\-_]/g, '');
+        result = await this.client.query(
+            `SELECT id, name FROM sensors WHERE LOWER(REPLACE(REPLACE(REPLACE(name, ' ', ''), '-', ''), '_', '')) = $1`,
+            [normalized]
+        );
+        if (result.rows.length > 0) return result.rows[0].id;
+
+        // No match found
+        throw new Error(`Sensor not found: ${name}`);
     }
 
     private inferSensorType(sensorName: string): string {
@@ -351,33 +411,35 @@ export class ImportService {
         return 'Bayer';
     }
 
-    private async lookupOrCreateCamera(name: string, sensorId: number): Promise<number> {
-        const existing = await this.client.query(
+    private async lookupCamera(name: string): Promise<number> {
+        const trimmed = name.trim();
+
+        // Strategy 1: Exact match (case-sensitive)
+        let result = await this.client.query(
             'SELECT id FROM camera_models WHERE name = $1',
-            [name]
+            [trimmed]
         );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        if (existing.rows.length > 0) {
-            return existing.rows[0].id;
-        }
-
-        // Infer system from camera name or default to Fujifilm X-Series
-        const systemId = await this.inferSystemFromCameraName(name);
-
-        // Create new camera
-        const result = await this.client.query(
-            `INSERT INTO camera_models (name, system_id, sensor_id, created_at)
-             VALUES ($1, $2, $3, now())
-             RETURNING id`,
-            [name, systemId, sensorId]
+        // Strategy 2: Case-insensitive match
+        result = await this.client.query(
+            'SELECT id FROM camera_models WHERE LOWER(name) = LOWER($1)',
+            [trimmed]
         );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        const newId = result.rows[0].id;
-        const systemName = await this.getSystemName(systemId);
-        this.newEntries.cameras.set(newId, { name, system: systemName });
-        this.trackTableStat('camera_models', 'insert');
+        // Strategy 3: Fuzzy match - remove spaces, hyphens, special chars
+        // XPRO3 -> X-Pro3, X100v -> X100V, X-H2s -> X-H2S
+        const normalized = trimmed.toLowerCase().replace(/[\s\-_]/g, '');
+        result = await this.client.query(
+            `SELECT id, name FROM camera_models 
+             WHERE LOWER(REPLACE(REPLACE(REPLACE(name, ' ', ''), '-', ''), '_', '')) = $1`,
+            [normalized]
+        );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        return newId;
+        // No match found
+        throw new Error(`Camera not found: ${name}`);
     }
 
     private async inferSystemFromCameraName(cameraName: string): Promise<number> {
@@ -417,57 +479,72 @@ export class ImportService {
         return result.rows[0].name;
     }
 
-    private async lookupOrCreateFilmSimulation(label: string, systemId: number): Promise<number> {
-        // First try exact match on label and system
-        const existing = await this.client.query(
-            'SELECT id FROM film_simulations WHERE label = $1 AND system_id = $2',
-            [label, systemId]
-        );
+    private async lookupFilmSimulation(label: string, systemId: number): Promise<number> {
+        let trimmed = label.trim();
 
-        if (existing.rows.length > 0) {
-            return existing.rows[0].id;
+        // Apply mapping if exists
+        if (ImportService.FILM_SIM_MAP[trimmed]) {
+            trimmed = ImportService.FILM_SIM_MAP[trimmed];
         }
 
-        // Generate the name that would be used
-        const name = this.generateSlug(label).toUpperCase().replace(/-/g, '_');
+        // Strategy 1: Exact match on label and system
+        let result = await this.client.query(
+            'SELECT id FROM film_simulations WHERE label = $1 AND system_id = $2',
+            [trimmed, systemId]
+        );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        // Check if a film sim with this generated name exists for this system
-        // (to avoid constraint violation on system_id + name unique)
-        const existingByName = await this.client.query(
+        // Strategy 2: Case-insensitive match on label and system
+        result = await this.client.query(
+            'SELECT id FROM film_simulations WHERE LOWER(label) = LOWER($1) AND system_id = $2',
+            [trimmed, systemId]
+        );
+        if (result.rows.length > 0) return result.rows[0].id;
+
+        // Strategy 3: Match by generated name (slug) and system
+        const name = this.generateSlug(trimmed).toUpperCase().replace(/-/g, '_');
+        result = await this.client.query(
             'SELECT id FROM film_simulations WHERE name = $1 AND system_id = $2',
             [name, systemId]
         );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        if (existingByName.rows.length > 0) {
-            return existingByName.rows[0].id;
-        }
-
-        // Check if a film sim with this label exists for ANY system
-        // (cross-system compatibility)
-        const anySystem = await this.client.query(
+        // Strategy 4: Cross-system compatibility - exact label match
+        result = await this.client.query(
             'SELECT id FROM film_simulations WHERE label = $1 LIMIT 1',
-            [label]
+            [trimmed]
         );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        if (anySystem.rows.length > 0) {
-            // Film simulation exists for a different system
-            // Return the existing one
-            return anySystem.rows[0].id;
-        }
-
-        // Create new film simulation
-        const result = await this.client.query(
-            `INSERT INTO film_simulations (name, system_id, label, created_at)
-             VALUES ($1, $2, $3, now())
-             RETURNING id`,
-            [name, systemId, label]
+        // Strategy 5: Cross-system compatibility - case-insensitive label match
+        result = await this.client.query(
+            'SELECT id FROM film_simulations WHERE LOWER(label) = LOWER($1) LIMIT 1',
+            [trimmed]
         );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        const newId = result.rows[0].id;
-        this.newEntries.filmSimulations.set(newId, label);
-        this.trackTableStat('film_simulations', 'insert');
+        // Strategy 6: Fuzzy match - remove spaces, hyphens, dots
+        // "Pro Neg. High" -> "proneghigh"
+        const normalized = trimmed.toLowerCase().replace(/[\s\-_.]/g, '');
+        result = await this.client.query(
+            `SELECT id FROM film_simulations 
+             WHERE LOWER(REPLACE(REPLACE(REPLACE(REPLACE(label, ' ', ''), '-', ''), '_', ''), '.', '')) = $1 
+             AND system_id = $2`,
+            [normalized, systemId]
+        );
+        if (result.rows.length > 0) return result.rows[0].id;
 
-        return newId;
+        // Strategy 7: Fuzzy match cross-system
+        result = await this.client.query(
+            `SELECT id FROM film_simulations 
+             WHERE LOWER(REPLACE(REPLACE(REPLACE(REPLACE(label, ' ', ''), '-', ''), '_', ''), '.', '')) = $1 
+             LIMIT 1`,
+            [normalized]
+        );
+        if (result.rows.length > 0) return result.rows[0].id;
+
+        // No match found
+        throw new Error(`Film simulation not found: ${label}`);
     }
 
     private async lookupStyleCategory(name: string): Promise<number | null> {
@@ -543,6 +620,11 @@ export class ImportService {
             // Transform the setting name
             const dbKey = SettingTransformer.transformName(csvKey);
 
+            // Skip settings marked as IGNORE
+            if (dbKey === 'IGNORE') {
+                continue;
+            }
+
             // Lookup setting definition
             const setting = this.settingDefinitionsCache!.get(dbKey.toLowerCase());
 
@@ -600,18 +682,44 @@ export class ImportService {
     private async insertRecipe(data: {
         name: string;
         authorId: number;
+        sensorId: number;
         cameraId: number;
         filmSimId: number;
         styleCategoryId: number;
         publishDate: Date | null;
         sourceUrl: string | null;
     }): Promise<number> {
-        const slug = this.generateSlug(data.name);
+        let slug = this.generateSlug(data.name);
+        let counter = 1;
+
+        while (true) {
+            // Check if slug exists
+            const existingSlug = await this.client.query(
+                'SELECT id, author_id FROM recipes WHERE slug = $1',
+                [slug]
+            );
+
+            if (existingSlug.rows.length === 0) {
+                // Slug is free, proceed to insert
+                break;
+            }
+
+            const existingRecipe = existingSlug.rows[0];
+
+            if (existingRecipe.author_id === data.authorId) {
+                // Recipe exists for THIS author, proceed to update
+                break;
+            }
+
+            // Slug exists for DIFFERENT author, append suffix and try again
+            slug = `${this.generateSlug(data.name)}-${counter}`;
+            counter++;
+        }
 
         // Get system_id from camera
         const systemId = await this.getSystemFromCamera(data.cameraId);
 
-        // Check if recipe exists (by slug and author)
+        // Check if recipe exists (by slug and author) - using the resolved slug
         const existing = await this.client.query(
             'SELECT id FROM recipes WHERE slug = $1 AND author_id = $2',
             [slug, data.authorId]
@@ -623,14 +731,15 @@ export class ImportService {
                 `UPDATE recipes SET
                     name = $1,
                     system_id = $2,
-                    camera_model_id = $3,
-                    film_simulation_id = $4,
-                    style_category_id = $5,
-                    publish_date = $6,
-                    source_url = $7,
+                    sensor_id = $3,
+                    camera_model_id = $4,
+                    film_simulation_id = $5,
+                    style_category_id = $6,
+                    publish_date = $7,
+                    source_url = $8,
                     updated_at = now()
-                 WHERE id = $8`,
-                [data.name, systemId, data.cameraId, data.filmSimId, data.styleCategoryId,
+                 WHERE id = $9`,
+                [data.name, systemId, data.sensorId, data.cameraId, data.filmSimId, data.styleCategoryId,
                 data.publishDate, data.sourceUrl, existing.rows[0].id]
             );
 
@@ -642,12 +751,12 @@ export class ImportService {
         // Insert new recipe
         const result = await this.client.query(
             `INSERT INTO recipes (
-                name, slug, author_id, system_id, camera_model_id, film_simulation_id,
+                name, slug, author_id, system_id, sensor_id, camera_model_id, film_simulation_id,
                 style_category_id, difficulty_level, source_type, publish_date,
                 source_url, created_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
              RETURNING id`,
-            [data.name, slug, data.authorId, systemId, data.cameraId, data.filmSimId,
+            [data.name, slug, data.authorId, systemId, data.sensorId, data.cameraId, data.filmSimId,
             data.styleCategoryId, 'intermediate', 'curated', data.publishDate, data.sourceUrl]
         );
 
@@ -663,12 +772,18 @@ export class ImportService {
             [recipeId]
         );
 
-        // Insert new settings
+        // Deduplicate settings (last one wins)
+        const uniqueSettings = new Map<number, string>();
         for (const setting of settings) {
+            uniqueSettings.set(setting.definitionId, setting.value);
+        }
+
+        // Insert new settings
+        for (const [definitionId, value] of uniqueSettings) {
             await this.client.query(
                 `INSERT INTO recipe_setting_values (recipe_id, setting_definition_id, value)
                  VALUES ($1, $2, $3)`,
-                [recipeId, setting.definitionId, setting.value]
+                [recipeId, definitionId, value]
             );
             this.trackTableStat('recipe_setting_values', 'insert');
         }
@@ -876,20 +991,44 @@ export class ImportService {
             console.log('------');
             console.log(`${report.summary.errors} rows had errors`);
 
-            // Count error types
+            // Count error types and specific missing values
             const errorTypes = new Map<string, number>();
+            const missingValues = new Map<string, Map<string, number>>();
+
             this.errors.forEach(e => {
-                const type = e.errorMessage.split(':')[0];
+                const parts = e.errorMessage.split(':');
+                const type = parts[0].trim();
+                const value = parts.slice(1).join(':').trim();
+
                 errorTypes.set(type, (errorTypes.get(type) || 0) + 1);
+
+                if (value && (type.includes('not found') || type.includes('Invalid'))) {
+                    if (!missingValues.has(type)) {
+                        missingValues.set(type, new Map());
+                    }
+                    const valuesMap = missingValues.get(type)!;
+                    valuesMap.set(value, (valuesMap.get(value) || 0) + 1);
+                }
             });
 
             if (errorTypes.size > 0) {
                 console.log('\nCommon errors:');
                 Array.from(errorTypes.entries())
                     .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
+                    .slice(0, 10)
                     .forEach(([type, count]) => {
                         console.log(`  - ${type}: ${count} occurrences`);
+
+                        // Show top missing values for this type
+                        if (missingValues.has(type)) {
+                            const topValues = Array.from(missingValues.get(type)!.entries())
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 5);
+
+                            topValues.forEach(([val, c]) => {
+                                console.log(`    • "${val}": ${c}`);
+                            });
+                        }
                     });
             }
         }

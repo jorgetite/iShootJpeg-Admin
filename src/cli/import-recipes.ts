@@ -8,6 +8,7 @@ async function main() {
             file: { type: 'string', short: 'f' },
             'dry-run': { type: 'boolean' },
             'log-dir': { type: 'string' },
+            truncate: { type: 'boolean' },
             help: { type: 'boolean', short: 'h' },
         },
     });
@@ -18,6 +19,7 @@ Usage: pnpm run cli:import -- --file <path-to-csv> [options]
 
 Options:
   -f, --file <path>     Path to the CSV file to import (required)
+      --truncate        Truncate recipes table before importing
       --dry-run         Test import without persisting data (rolls back transaction)
       --log-dir <path>  Directory for log files (default: data/logs)
   -h, --help            Show this help message
@@ -25,6 +27,9 @@ Options:
 Examples:
   # Import recipes with default settings
   pnpm run cli:import -- --file tests/fixtures/recipes.csv
+
+  # Truncate existing recipes before import
+  pnpm run cli:import -- --file tests/fixtures/recipes.csv --truncate
 
   # Dry-run to test without persisting
   pnpm run cli:import -- --file tests/fixtures/recipes.csv --dry-run
@@ -48,11 +53,13 @@ Examples:
 
     const dryRun = values['dry-run'] ?? false;
     const logDir = values['log-dir'] ?? 'data/logs';
+    const truncate = values['truncate'] ?? false;
 
     const importService = new ImportService(
         process.env.DATABASE_URL,
         dryRun,
-        logDir
+        logDir,
+        truncate
     );
 
     try {
