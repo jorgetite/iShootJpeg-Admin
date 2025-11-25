@@ -447,6 +447,81 @@ Common errors and solutions:
    ```
 
 
+### Export Recipes to JSON
+
+Export film simulation recipes to JSON format for website publishing or data backup.
+
+```bash
+pnpm run cli:export -- --output=/path/to/output.json
+```
+
+**Options:**
+- `--output` or `-o` - Path to output JSON file (required)
+- `--recipe-id` - Export a single recipe by ID (optional)
+- `--pretty` - Pretty print JSON output (default: true)
+
+**Examples:**
+```bash
+# Export all recipes
+pnpm run cli:export -- --output data/exports/recipes.json
+
+# Export a single recipe by ID
+pnpm run cli:export -- --output data/exports/recipe-123.json --recipe-id 123
+
+# Export without pretty printing (compact JSON)
+pnpm run cli:export -- --output data/exports/recipes.json --pretty=false
+```
+
+#### Output Format
+
+**Batch Export** (all recipes):
+```json
+{
+  "metadata": {
+    "version": "1.0",
+    "exportDate": "2024-11-24T01:55:17.275Z",
+    "totalRecipes": 977
+  },
+  "recipes": [
+    {
+      "name": "Classic Chrome+",
+      "slug": "classic-chrome-plus",
+      "filmSimulation": { "name": "classic_chrome", "label": "Classic Chrome" },
+      "author": { "name": "Ritchie Roesch", "slug": "ritchie-roesch" },
+      "system": { "name": "X-Series", "manufacturer": "Fujifilm" },
+      "settings": { "dynamic_range": { "value": "DR400" }, "iso": { "range": { "min": "200", "max": "3200" } } },
+      "tags": [...],
+      "images": [...]
+    }
+  ]
+}
+```
+
+**Single Recipe Export**:
+```json
+{
+  "name": "Classic Chrome+",
+  "slug": "classic-chrome-plus",
+  ...
+}
+```
+
+#### Features
+
+- **Flattened Structure**: Recipe properties at top level for easy access
+- **Settings by Slug**: Direct property access (e.g., `recipe.settings.dynamic_range`)
+- **Value vs Range**: Single values use `value`, ranges use `range: { min, max }`
+- **Complete Data**: Includes author, system, sensor, camera, film simulation, tags, and images
+- **Metadata**: Batch exports include version, export date, and total count
+
+#### Performance
+
+- Processes ~50 recipes/second
+- Progress indicators every 10 recipes
+- Optimized SQL queries with JOINs
+
+
+
 ### Process and Upload Images
 
 ```bash

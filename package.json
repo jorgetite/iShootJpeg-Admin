@@ -11,6 +11,7 @@
         "preview": "nuxt preview",
         "cli:import": "tsx --env-file=.env src/cli/import-recipes.ts",
         "cli:import-authors": "tsx --env-file=.env src/cli/import-authors.ts",
+        "cli:export": "tsx --env-file=.env src/cli/export-recipes.ts",
         "cli:process-images": "tsx --env-file=.env src/cli/process-images.ts",
         "db:migrate": "tsx --env-file=.env src/cli/db-migrate.ts",
         "db:init": "tsx --env-file=.env src/cli/init-db.ts",
