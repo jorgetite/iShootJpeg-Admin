@@ -211,7 +211,7 @@ export class RecipeCrudService {
 
             const updateFields = [
                 'name', 'description', 'difficulty_level', 'source_url', 'source_type',
-                'publish_date', 'is_featured', 'system_id', 'camera_model_id', 'sensor_id',
+                'publish_date', 'is_featured', 'is_active', 'system_id', 'camera_model_id', 'sensor_id',
                 'film_simulation_id', 'style_category_id'
             ];
 
@@ -620,6 +620,133 @@ export class RecipeCrudService {
                 level: 'ERROR',
                 service: 'RecipeCrudService',
                 operation: 'searchRecipes',
+                correlation_id: correlationId,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                duration_ms: Date.now() - startTime,
+            }));
+
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Search recipes with full details (author names, system names, etc.)
+     * 
+     * @param params - Search parameters
+     * @returns Paginated recipes with details and total count
+     */
+    async searchRecipesWithDetails(params: {
+        search?: string;
+        system_id?: number;
+        author_id?: number;
+        sensor_id?: number;
+        film_simulation_id?: number;
+        limit?: number;
+        offset?: number;
+    }): Promise<{ recipes: any[]; total: number }> {
+        const startTime = Date.now();
+        const correlationId = this.generateCorrelationId();
+        const client = await this.db.getClient();
+
+        try {
+            console.log(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                service: 'RecipeCrudService',
+                operation: 'searchRecipesWithDetails',
+                correlation_id: correlationId,
+                params,
+            }));
+
+            const conditions: string[] = ['r.is_active = true'];
+            const values: any[] = [];
+            let paramIndex = 1;
+
+            if (params.search) {
+                conditions.push(`(r.name ILIKE $${paramIndex} OR r.description ILIKE $${paramIndex})`);
+                values.push(`%${params.search}%`);
+                paramIndex++;
+            }
+
+            if (params.system_id) {
+                conditions.push(`r.system_id = $${paramIndex}`);
+                values.push(params.system_id);
+                paramIndex++;
+            }
+
+            if (params.author_id) {
+                conditions.push(`r.author_id = $${paramIndex}`);
+                values.push(params.author_id);
+                paramIndex++;
+            }
+
+            if (params.sensor_id) {
+                conditions.push(`r.sensor_id = $${paramIndex}`);
+                values.push(params.sensor_id);
+                paramIndex++;
+            }
+
+            if (params.film_simulation_id) {
+                conditions.push(`r.film_simulation_id = $${paramIndex}`);
+                values.push(params.film_simulation_id);
+                paramIndex++;
+            }
+
+            const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+            // Get total count
+            const countResult = await client.query(
+                `SELECT COUNT(*) as count FROM recipes r ${whereClause}`,
+                values
+            );
+            const total = parseInt(countResult.rows[0].count);
+
+            // Get paginated results with JOINs
+            const limit = params.limit || 20;
+            const offset = params.offset || 0;
+
+            const query = `
+                SELECT 
+                    r.*,
+                    a.name as author_name,
+                    cs.name as system_name,
+                    s.name as sensor_name,
+                    fs.label as film_simulation_name
+                FROM recipes r
+                LEFT JOIN authors a ON r.author_id = a.id
+                LEFT JOIN camera_systems cs ON r.system_id = cs.id
+                LEFT JOIN sensors s ON r.sensor_id = s.id
+                LEFT JOIN film_simulations fs ON r.film_simulation_id = fs.id
+                ${whereClause}
+                ORDER BY r.created_at DESC
+                LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+            `;
+
+            const recipesResult = await client.query(query, [...values, limit, offset]);
+
+            console.log(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                service: 'RecipeCrudService',
+                operation: 'searchRecipesWithDetails',
+                correlation_id: correlationId,
+                result_count: recipesResult.rows.length,
+                total_count: total,
+                duration_ms: Date.now() - startTime,
+            }));
+
+            return {
+                recipes: recipesResult.rows,
+                total,
+            };
+        } catch (error) {
+            console.error(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                level: 'ERROR',
+                service: 'RecipeCrudService',
+                operation: 'searchRecipesWithDetails',
                 correlation_id: correlationId,
                 error: error instanceof Error ? error.message : 'Unknown error',
                 duration_ms: Date.now() - startTime,

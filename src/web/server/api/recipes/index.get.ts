@@ -9,6 +9,8 @@ import { RecipeCrudService } from '../../../../core/services/recipe-crud-service
  * - limit: number (default: 20, max: 100)
  * - system_id: number (optional)
  * - author_id: number (optional)
+ * - sensor_id: number (optional)
+ * - film_simulation_id: number (optional)
  * - search: string (optional)
  */
 export default defineEventHandler(async (event) => {
@@ -31,11 +33,12 @@ export default defineEventHandler(async (event) => {
             system_id: query.system_id ? parseInt(query.system_id as string) : undefined,
             author_id: query.author_id ? parseInt(query.author_id as string) : undefined,
             sensor_id: query.sensor_id ? parseInt(query.sensor_id as string) : undefined,
+            film_simulation_id: query.film_simulation_id ? parseInt(query.film_simulation_id as string) : undefined,
             limit,
             offset,
         };
 
-        const { recipes, total } = await service.searchRecipes(searchParams);
+        const result = await service.searchRecipesWithDetails(searchParams);
 
         await service.disconnect();
 
@@ -46,17 +49,17 @@ export default defineEventHandler(async (event) => {
             endpoint: 'GET /api/recipes',
             correlation_id: correlationId,
             params: searchParams,
-            result_count: recipes.length,
-            total,
+            result_count: result.recipes.length,
+            total: result.total,
             duration_ms: Date.now() - startTime,
         }));
 
         return {
-            data: recipes,
-            total,
+            data: result.recipes,
+            total: result.total,
             page,
             limit,
-            totalPages: Math.ceil(total / limit),
+            totalPages: Math.ceil(result.total / limit),
         };
     } catch (error) {
         console.error(JSON.stringify({

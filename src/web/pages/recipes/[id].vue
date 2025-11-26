@@ -40,13 +40,6 @@ const router = useRouter();
 const recipeId = route.params.id;
 const saving = ref(false);
 
-definePageMeta({
-  validate: async (route) => {
-    // Only allow numeric IDs
-    return /^\d+$/.test(route.params.id as string);
-  }
-});
-
 // Fetch recipe data
 const { data: recipe, pending, error } = await useFetch(`/api/recipes/${recipeId}`);
 
