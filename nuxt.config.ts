@@ -6,6 +6,7 @@ export default defineNuxtConfig({
     compatibilityDate: '2024-11-01',
     devtools: { enabled: true },
     srcDir: 'src/web/',
+    serverDir: 'src/web/server',
 
     runtimeConfig: {
         // Private keys (server-side only)

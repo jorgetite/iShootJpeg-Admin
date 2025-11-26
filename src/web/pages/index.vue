@@ -13,7 +13,11 @@
             <span class="material-symbols-outlined">restaurant</span>
           </div>
           <div class="stat-content">
-            <div class="stat-value">156</div>
+            <div class="stat-value">
+              <span v-if="pending" class="loading-dots">...</span>
+              <span v-else-if="error">-</span>
+              <span v-else>{{ stats?.recipes?.toLocaleString() }}</span>
+            </div>
             <div class="stat-label">Recipes</div>
           </div>
         </div>
@@ -23,7 +27,11 @@
             <span class="material-symbols-outlined">person</span>
           </div>
           <div class="stat-content">
-            <div class="stat-value">42</div>
+            <div class="stat-value">
+              <span v-if="pending" class="loading-dots">...</span>
+              <span v-else-if="error">-</span>
+              <span v-else>{{ stats?.authors?.toLocaleString() }}</span>
+            </div>
             <div class="stat-label">Authors</div>
           </div>
         </div>
@@ -33,7 +41,11 @@
             <span class="material-symbols-outlined">label</span>
           </div>
           <div class="stat-content">
-            <div class="stat-value">89</div>
+            <div class="stat-value">
+              <span v-if="pending" class="loading-dots">...</span>
+              <span v-else-if="error">-</span>
+              <span v-else>{{ stats?.tags?.toLocaleString() }}</span>
+            </div>
             <div class="stat-label">Tags</div>
           </div>
         </div>
@@ -43,7 +55,11 @@
             <span class="material-symbols-outlined">photo_camera</span>
           </div>
           <div class="stat-content">
-            <div class="stat-value">54</div>
+            <div class="stat-value">
+              <span v-if="pending" class="loading-dots">...</span>
+              <span v-else-if="error">-</span>
+              <span v-else>{{ stats?.cameraSystems?.toLocaleString() }}</span>
+            </div>
             <div class="stat-label">Camera Systems</div>
           </div>
         </div>
@@ -73,6 +89,9 @@
 
 <script setup lang="ts">
 import AdminLayout from '~/components/layout/AdminLayout.vue';
+
+// Fetch real statistics from API
+const { data: stats, pending, error } = await useFetch('/api/stats');
 </script>
 
 <style scoped>
