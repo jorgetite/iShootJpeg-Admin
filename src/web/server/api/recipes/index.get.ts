@@ -25,25 +25,17 @@ export default defineEventHandler(async (event) => {
         const service = new RecipeCrudService(config.DATABASE_URL || process.env.DATABASE_URL!);
         await service.connect();
 
-        // Build filters
-        const filters: Record<string, any> = { is_active: true };
+        // Build search params
+        const searchParams = {
+            search: query.search as string,
+            system_id: query.system_id ? parseInt(query.system_id as string) : undefined,
+            author_id: query.author_id ? parseInt(query.author_id as string) : undefined,
+            sensor_id: query.sensor_id ? parseInt(query.sensor_id as string) : undefined,
+            limit,
+            offset,
+        };
 
-        if (query.system_id) {
-            filters.system_id = parseInt(query.system_id as string);
-        }
-
-        if (query.author_id) {
-            filters.author_id = parseInt(query.author_id as string);
-        }
-
-        // TODO: Implement search functionality
-        // For now, just get all with filters
-
-        const recipes = await service['db'].getAll('recipes', filters, 'created_at DESC');
-
-        // Apply pagination
-        const total = recipes.length;
-        const paginatedRecipes = recipes.slice(offset, offset + limit);
+        const { recipes, total } = await service.searchRecipes(searchParams);
 
         await service.disconnect();
 
@@ -53,14 +45,14 @@ export default defineEventHandler(async (event) => {
             service: 'API',
             endpoint: 'GET /api/recipes',
             correlation_id: correlationId,
-            page,
-            limit,
+            params: searchParams,
+            result_count: recipes.length,
             total,
             duration_ms: Date.now() - startTime,
         }));
 
         return {
-            data: paginatedRecipes,
+            data: recipes,
             total,
             page,
             limit,

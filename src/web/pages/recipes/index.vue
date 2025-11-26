@@ -6,24 +6,59 @@
           <h1>Recipes</h1>
           <p class="text-muted">Manage film simulation recipes</p>
         </div>
-        <button class="btn btn-primary">
+        <NuxtLink to="/recipes/create" class="btn btn-primary">
           <span class="material-symbols-outlined">add</span>
           New Recipe
-        </button>
+        </NuxtLink>
       </header>
 
       <!-- Search and Filters -->
       <div class="filters-section">
         <div class="search-bar">
           <span class="material-symbols-outlined">search</span>
-          <input type="text" placeholder="Search recipes..." />
+          <input 
+            type="text" 
+            placeholder="Search recipes..." 
+            :value="searchQuery"
+            @input="handleSearch"
+          />
         </div>
         <div class="filter-pills">
-          <button class="filter-pill active">All</button>
-          <button class="filter-pill">Fujifilm</button>
-          <button class="filter-pill">Nikon</button>
-          <button class="filter-pill">Canon</button>
-          <button class="filter-pill">Sony</button>
+          <button 
+            class="filter-pill" 
+            :class="{ active: selectedSystem === undefined }"
+            @click="setSystem(undefined)"
+          >
+            All
+          </button>
+          <button 
+            class="filter-pill" 
+            :class="{ active: selectedSystem === 1 }"
+            @click="setSystem(1)"
+          >
+            Fujifilm
+          </button>
+          <button 
+            class="filter-pill" 
+            :class="{ active: selectedSystem === 2 }"
+            @click="setSystem(2)"
+          >
+            Nikon
+          </button>
+          <button 
+            class="filter-pill" 
+            :class="{ active: selectedSystem === 3 }"
+            @click="setSystem(3)"
+          >
+            Canon
+          </button>
+          <button 
+            class="filter-pill" 
+            :class="{ active: selectedSystem === 4 }"
+            @click="setSystem(4)"
+          >
+            Sony
+          </button>
         </div>
       </div>
 
@@ -65,164 +100,115 @@
             </p>
           </div>
           <div class="recipe-actions">
-            <button class="btn-icon" title="Edit">
+            <NuxtLink :to="`/recipes/${recipe.id}`" class="btn-icon" title="Edit">
               <span class="material-symbols-outlined">edit</span>
-            </button>
-            <button class="btn-icon" title="Delete">
+            </NuxtLink>
+            <button 
+              class="btn-icon" 
+              title="Delete"
+              @click="handleDelete(recipe.id)"
+            >
               <span class="material-symbols-outlined">delete</span>
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="pagination">
+        <button 
+          class="btn-icon" 
+          :disabled="page === 1"
+          @click="prevPage"
+        >
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <span class="page-info">Page {{ page }} of {{ totalPages }}</span>
+        <button 
+          class="btn-icon" 
+          :disabled="page === totalPages"
+          @click="nextPage"
+        >
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
       </div>
     </div>
   </AdminLayout>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, watch } from 'vue';
 import AdminLayout from '~/components/layout/AdminLayout.vue';
 
-// Fetch recipes from API
-const { data: recipes, pending, error } = await useFetch('/api/recipes');
+// State
+const searchQuery = ref('');
+const selectedSystem = ref<number | undefined>(undefined);
+const page = ref(1);
+const limit = ref(20);
+
+// Debounce search
+const debouncedSearch = ref('');
+let searchTimeout: any;
+
+const handleSearch = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value;
+  searchQuery.value = value;
+  
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    debouncedSearch.value = value;
+    page.value = 1; // Reset to first page on search
+  }, 300);
+};
+
+// Filter handlers
+const setSystem = (id: number | undefined) => {
+  selectedSystem.value = id;
+  page.value = 1; // Reset to first page on filter change
+};
+
+// Fetch recipes with reactive params
+const { data, pending, error, refresh } = await useFetch('/api/recipes', {
+  query: {
+    page,
+    limit,
+    search: debouncedSearch,
+    system_id: selectedSystem,
+  }
+});
+
+// Delete handler
+const handleDelete = async (id: number) => {
+  if (!confirm('Are you sure you want to delete this recipe?')) return;
+
+  try {
+    await $fetch(`/api/recipes/${id}`, { method: 'DELETE' });
+    // Refresh list after delete
+    refresh();
+  } catch (e) {
+    console.error('Failed to delete recipe:', e);
+    alert('Failed to delete recipe');
+  }
+};
+
+// Computed properties for template
+const recipes = computed(() => data.value?.data || []);
+const total = computed(() => data.value?.total || 0);
+const totalPages = computed(() => data.value?.totalPages || 1);
+
+// Pagination handlers
+const nextPage = () => {
+  if (page.value < totalPages.value) page.value++;
+};
+
+const prevPage = () => {
+  if (page.value > 1) page.value--;
+};
 </script>
 
 <style scoped>
 .recipes-page {
   max-width: 1400px;
   margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
-}
-
-.page-header h1 {
-  margin: 0 0 0.5rem;
-  font-size: 2rem;
-  font-weight: 700;
-}
-
-.filters-section {
-  margin-bottom: 2rem;
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.search-bar {
-  flex: 1;
-  min-width: 300px;
-  max-width: 500px;
-}
-
-.filter-pills {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.recipes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
-}
-
-.recipe-card {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
-}
-
-.recipe-image {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: linear-gradient(135deg, rgba(242, 128, 182, 0.1), rgba(5, 151, 242, 0.1));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.recipe-image .material-symbols-outlined {
-  font-size: 64px;
-  color: var(--color-text-dark);
-}
-
-.recipe-content {
-  padding: 1.25rem;
-  flex: 1;
-}
-
-.recipe-name {
-  margin: 0 0 0.75rem;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text-light);
-}
-
-.recipe-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--color-text-dark);
-  margin: 0.5rem 0 0;
-}
-
-.recipe-meta .material-symbols-outlined {
-  font-size: 16px;
-}
-
-.recipe-actions {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0 1.25rem 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding-top: 1rem;
-}
-
-.loading,
-.error,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  text-align: center;
-}
-
-.loading .material-symbols-outlined,
-.error .material-symbols-outlined,
-.empty-state .material-symbols-outlined {
-  font-size: 64px;
-  color: var(--color-primary);
-  margin-bottom: 1rem;
-}
-
-.empty-state h3 {
-  margin: 0 0 0.5rem;
-  font-size: 1.5rem;
-}
-
-.empty-state p {
-  margin: 0 0 1.5rem;
-  color: var(--color-text-dark);
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.loading .material-symbols-outlined {
-  animation: spin 1s linear infinite;
 }
 </style>

@@ -522,6 +522,202 @@ export class RecipeCrudService {
     }
 
     /**
+     * Search recipes with filters and pagination
+     * 
+     * @param params - Search parameters
+     * @returns Paginated recipes and total count
+     */
+    async searchRecipes(params: {
+        search?: string;
+        system_id?: number;
+        author_id?: number;
+        sensor_id?: number;
+        limit?: number;
+        offset?: number;
+    }): Promise<{ recipes: Recipe[]; total: number }> {
+        const startTime = Date.now();
+        const correlationId = this.generateCorrelationId();
+        const client = await this.db.getClient();
+
+        try {
+            console.log(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                service: 'RecipeCrudService',
+                operation: 'searchRecipes',
+                correlation_id: correlationId,
+                params,
+            }));
+
+            const conditions: string[] = ['is_active = true'];
+            const values: any[] = [];
+            let paramIndex = 1;
+
+            if (params.search) {
+                conditions.push(`(name ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`);
+                values.push(`%${params.search}%`);
+                paramIndex++;
+            }
+
+            if (params.system_id) {
+                conditions.push(`system_id = $${paramIndex}`);
+                values.push(params.system_id);
+                paramIndex++;
+            }
+
+            if (params.author_id) {
+                conditions.push(`author_id = $${paramIndex}`);
+                values.push(params.author_id);
+                paramIndex++;
+            }
+
+            if (params.sensor_id) {
+                conditions.push(`sensor_id = $${paramIndex}`);
+                values.push(params.sensor_id);
+                paramIndex++;
+            }
+
+            const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+            // Get total count
+            const countResult = await client.query(
+                `SELECT COUNT(*) as count FROM recipes ${whereClause}`,
+                values
+            );
+            const total = parseInt(countResult.rows[0].count);
+
+            // Get paginated results
+            const limit = params.limit || 20;
+            const offset = params.offset || 0;
+
+            const query = `
+                SELECT * FROM recipes
+                ${whereClause}
+                ORDER BY created_at DESC
+                LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+            `;
+
+            const recipesResult = await client.query(query, [...values, limit, offset]);
+
+            console.log(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                service: 'RecipeCrudService',
+                operation: 'searchRecipes',
+                correlation_id: correlationId,
+                result_count: recipesResult.rows.length,
+                total_count: total,
+                duration_ms: Date.now() - startTime,
+            }));
+
+            return {
+                recipes: recipesResult.rows,
+                total,
+            };
+        } catch (error) {
+            console.error(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                level: 'ERROR',
+                service: 'RecipeCrudService',
+                operation: 'searchRecipes',
+                correlation_id: correlationId,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                duration_ms: Date.now() - startTime,
+            }));
+
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Get all options for recipe form dropdowns
+     */
+    async getFormOptions() {
+        const client = await this.db.getClient();
+        try {
+            const [authors, systems, sensors, filmSimulations, styleCategories, cameraModels] = await Promise.all([
+                client.query('SELECT id, name FROM authors ORDER BY name ASC'),
+                client.query('SELECT id, name FROM camera_systems WHERE is_active = true ORDER BY name ASC'),
+                client.query('SELECT id, name FROM sensors ORDER BY name ASC'),
+                client.query('SELECT id, name, system_id FROM film_simulations WHERE is_active = true ORDER BY name ASC'),
+                client.query('SELECT id, name FROM style_categories WHERE is_active = true ORDER BY sort_order ASC'),
+                client.query('SELECT id, name, system_id FROM camera_models WHERE is_active = true ORDER BY name ASC')
+            ]);
+
+            return {
+                authors: authors.rows,
+                systems: systems.rows,
+                sensors: sensors.rows,
+                filmSimulations: filmSimulations.rows,
+                styleCategories: styleCategories.rows,
+                cameraModels: cameraModels.rows
+            };
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Get setting definitions for a specific system
+     */
+    async getSettingDefinitions(systemId: number) {
+        const client = await this.db.getClient();
+        try {
+            // Fetch definitions supported by the system
+            const definitionsResult = await client.query(
+                `SELECT 
+                    sd.*,
+                    sc.name as category_name,
+                    sc.sort_order as category_sort_order,
+                    ss.notes as system_notes
+                 FROM setting_definitions sd
+                 JOIN system_settings ss ON ss.setting_definition_id = sd.id
+                 LEFT JOIN setting_categories sc ON sc.id = sd.category_id
+                 WHERE ss.system_id = $1 AND ss.is_supported = true AND sd.is_active = true
+                 ORDER BY sc.sort_order ASC, sd.sort_order ASC`,
+                [systemId]
+            );
+
+            const definitions = definitionsResult.rows;
+
+            // Fetch enum values for enum-type settings
+            const enumIds = definitions
+                .filter(d => d.data_type === 'enum')
+                .map(d => d.id);
+
+            let enumValues: any[] = [];
+            if (enumIds.length > 0) {
+                const enumResult = await client.query(
+                    `SELECT * FROM setting_enum_values 
+                     WHERE setting_definition_id = ANY($1) AND is_active = true
+                     ORDER BY sort_order ASC`,
+                    [enumIds]
+                );
+                enumValues = enumResult.rows;
+            }
+
+            // Group enum values by definition id
+            const enumMap = enumValues.reduce((acc, curr) => {
+                if (!acc[curr.setting_definition_id]) {
+                    acc[curr.setting_definition_id] = [];
+                }
+                acc[curr.setting_definition_id].push(curr);
+                return acc;
+            }, {} as Record<number, any[]>);
+
+            // Attach enum values to definitions
+            return definitions.map(def => ({
+                ...def,
+                enum_values: enumMap[def.id] || []
+            }));
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
      * Generate correlation ID for request tracing
      */
     private generateCorrelationId(): string {
