@@ -1,7 +1,7 @@
 <template>
-  <div>
+  <AdminLayout>
     <NuxtPage />
-  </div>
+  </AdminLayout>
 </template>
 
 <script setup lang="ts">

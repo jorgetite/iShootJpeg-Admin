@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/**
+ * Tailwind CSS 4.2 Theme Configuration
+ * Custom design tokens for iShootJpeg Admin interface
+ */
+@theme {
+  /* Color Palette */
+  --color-primary: #F280B6;
+  --color-secondary-blue-1: #0597F2;
+  --color-secondary-blue-2: #05AFF2;
+  --color-highlight: #D9A796;
+  --color-background-dark: #0D0D0D;
+  --color-surface-dark: #1A1A1A;
+  --color-text-light: #F0F0F0;
+  --color-text-dark: #CCCCCC;
+  
+  /* Typography */
+  --font-family-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  /* Spacing (extending defaults) */
+  --spacing-18: 4.5rem;
+  --spacing-22: 5.5rem;
+  
+  /* Animation durations */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+}
+
+/**
+ * Custom utility classes
+ */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn var(--duration-normal) ease-in;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

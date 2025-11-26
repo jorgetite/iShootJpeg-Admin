@@ -20,7 +20,7 @@
 
 ### Web Interface
 - **Framework:** Nuxt 4.2
-- **Styling:** Tailwind CSS 4.2
+- **Styling:** Tailwind CSS 4.1
 - **UI Components:** Shoelace 2.2
 
 ### CLI Tools
