@@ -8,6 +8,8 @@ async function main() {
             output: { type: 'string', short: 'o' },
             'recipe-id': { type: 'string' },
             'pretty': { type: 'boolean', default: true },
+            'active-only': { type: 'boolean' },
+            'dry-run': { type: 'boolean' },
             help: { type: 'boolean', short: 'h' },
         },
     });
@@ -19,6 +21,8 @@ Usage: pnpm run cli:export -- --output <path-to-json> [options]
 Options:
   -o, --output <path>     Path to output JSON file (required)
       --recipe-id <id>    Export a single recipe by ID (optional)
+      --active-only       Export only active recipes (default: false)
+      --dry-run           Dry run mode - preview stats without writing file
       --pretty            Pretty print JSON output (default: true)
   -h, --help              Show this help message
 
@@ -31,12 +35,18 @@ Examples:
 
   # Export without pretty printing (compact JSON)
   pnpm run cli:export -- --output data/exports/recipes.json --pretty=false
+
+  # Export only active recipes
+  pnpm run cli:export -- --output data/exports/active-recipes.json --active-only
+
+  # Dry run to preview stats
+  pnpm run cli:export -- --dry-run
   `);
         process.exit(0);
     }
 
-    if (!values.output) {
-        console.error('Error: --output argument is required.');
+    if (!values.output && !values['dry-run']) {
+        console.error('Error: --output argument is required (unless --dry-run is used).');
         console.error('Run with --help for usage information.');
         process.exit(1);
     }
@@ -46,9 +56,11 @@ Examples:
         process.exit(1);
     }
 
-    const outputPath = values.output;
+    const outputPath = values.output || 'dry-run-output.json';
     const recipeId = values['recipe-id'] ? parseInt(values['recipe-id'], 10) : null;
     const prettyPrint = values.pretty ?? true;
+    const activeOnly = values['active-only'] ?? false;
+    const dryRun = values['dry-run'] ?? false;
 
     const exportService = new RecipeExportService(process.env.DATABASE_URL);
 
@@ -56,8 +68,8 @@ Examples:
         await exportService.connect();
 
         const stats = recipeId
-            ? await exportService.exportRecipeById(recipeId, { outputPath, prettyPrint })
-            : await exportService.exportRecipes({ outputPath, prettyPrint });
+            ? await exportService.exportRecipeById(recipeId, { outputPath, prettyPrint, dryRun })
+            : await exportService.exportRecipes({ outputPath, prettyPrint, activeOnly, dryRun });
 
         // Exit with error code if there were errors
         if (stats.errors > 0) {

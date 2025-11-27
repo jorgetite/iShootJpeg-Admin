@@ -456,8 +456,10 @@ pnpm run cli:export -- --output=/path/to/output.json
 ```
 
 **Options:**
-- `--output` or `-o` - Path to output JSON file (required)
+- `--output` or `-o` - Path to output JSON file (required unless `--dry-run` is used)
 - `--recipe-id` - Export a single recipe by ID (optional)
+- `--active-only` - Export only active recipes (default: false)
+- `--dry-run` - Preview export stats without writing to disk (default: false)
 - `--pretty` - Pretty print JSON output (default: true)
 
 **Examples:**
@@ -465,11 +467,14 @@ pnpm run cli:export -- --output=/path/to/output.json
 # Export all recipes
 pnpm run cli:export -- --output data/exports/recipes.json
 
+# Export active recipes only
+pnpm run cli:export -- --output data/exports/active.json --active-only
+
+# Dry run to preview stats (no file written)
+pnpm run cli:export -- --dry-run
+
 # Export a single recipe by ID
 pnpm run cli:export -- --output data/exports/recipe-123.json --recipe-id 123
-
-# Export without pretty printing (compact JSON)
-pnpm run cli:export -- --output data/exports/recipes.json --pretty=false
 ```
 
 #### Output Format

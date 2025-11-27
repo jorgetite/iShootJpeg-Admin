@@ -128,11 +128,14 @@ export class RecipeQueryService {
     }
 
     /**
-     * Fetch all recipes with their core data and relations
+     * Fetch recipes with their core data and relations
      * 
+     * @param options - Query options
      * @returns Array of raw recipe data from database
      */
-    async fetchRecipes(): Promise<RawRecipeData[]> {
+    async fetchRecipes(options: { onlyActive?: boolean } = {}): Promise<RawRecipeData[]> {
+        const { onlyActive = false } = options;
+
         const query = `
             SELECT
                 -- Recipe fields
@@ -185,11 +188,11 @@ export class RecipeQueryService {
             LEFT JOIN camera_models cm ON r.camera_model_id = cm.id
             INNER JOIN film_simulations fs ON r.film_simulation_id = fs.id
             LEFT JOIN style_categories sc ON r.style_category_id = sc.id
-            WHERE r.is_active = true
+            WHERE ($1::boolean IS FALSE OR r.is_active = true)
             ORDER BY r.created_at DESC
         `;
 
-        const result = await this.client.query<RawRecipeData>(query);
+        const result = await this.client.query<RawRecipeData>(query, [onlyActive]);
         return result.rows;
     }
 

@@ -353,7 +353,8 @@ export class SettingTransformer {
         // Handle Exposure Compensation: "+1/3 to +2/3" or "0EV" or "+1/3"
         if (normalized === 'exposure compensation' || normalized === 'ev suggestion' ||
             normalized === 'ev compensation' || normalized === 'exp comp' ||
-            normalized === 'push/pull (exposure)' || normalized === 'push/pull') {
+            normalized === 'push/pull (exposure)' || normalized === 'push/pull' ||
+            normalized === 'ev') {
             return this.parseExposureComp(csvValue);
         }
 
@@ -374,14 +375,14 @@ export class SettingTransformer {
         const result: Array<{ name: string, value: string }> = [];
 
         // Pattern: "R:4 B:-5" or "R+2 B-1" or "+2 Red, -1 Blue" or "0 Red, -4 Blue"
-        const redMatch = value.match(/(?:R:?|Red:?)\s*([+-]?\d+)/i);
-        const blueMatch = value.match(/(?:B:?|Blue:?)\s*([+-]?\d+)/i);
+        const redMatch = value.match(/(?:R:?|Red:?)\s*([+-]?\d+)|([+-]?\d+)\s*Red/i);
+        const blueMatch = value.match(/(?:B:?|Blue:?)\s*([+-]?\d+)|([+-]?\d+)\s*Blue/i);
 
         if (redMatch) {
-            result.push({ name: 'WB Shift Red', value: redMatch[1] });
+            result.push({ name: 'WB Shift Red', value: (redMatch[1] || redMatch[2])! });
         }
         if (blueMatch) {
-            result.push({ name: 'WB Shift Blue', value: blueMatch[1] });
+            result.push({ name: 'WB Shift Blue', value: (blueMatch[1] || blueMatch[2])! });
         }
 
         return result;
@@ -393,8 +394,8 @@ export class SettingTransformer {
         // Pattern: "800-3200" or "Auto, up to ISO 3200" or "400 minimum" or "200 up to ISO 6400"
         const dashMatch = value.match(/(\d+)\s*-\s*(\d+)/);
         if (dashMatch) {
-            result.push({ name: 'ISO Min', value: dashMatch[1] });
-            result.push({ name: 'ISO Max', value: dashMatch[2] });
+            result.push({ name: 'ISO Min', value: dashMatch[1]! });
+            result.push({ name: 'ISO Max', value: dashMatch[2]! });
             return result;
         }
 
@@ -413,6 +414,7 @@ export class SettingTransformer {
 
     private static parseExposureComp(value: string): Array<{ name: string, value: string }> {
         const result: Array<{ name: string, value: string }> = [];
+        value = value.trim();
 
         // Handle "0EV" or "0 EV" format
         if (value.match(/^\s*0\s*EV?\s*$/i)) {
@@ -425,15 +427,16 @@ export class SettingTransformer {
         const rangeMatch = value.match(/([+-]?\d+(?:\/\d+)?)\s*to\s*([+-]?\d+(?:\/\d+)?)/i);
 
         if (rangeMatch) {
-            const min = this.parseFraction(rangeMatch[1]);
-            const max = this.parseFraction(rangeMatch[2]);
+            const min = this.parseFraction(rangeMatch[1]!);
+            const max = this.parseFraction(rangeMatch[2]!);
             result.push({ name: 'Exposure Compensation Min', value: min.toString() });
             result.push({ name: 'Exposure Compensation Max', value: max.toString() });
         } else {
             // Single value: assume min=0, max=value
-            const singleMatch = value.match(/([+-]?\d+(?:\/\d+)?)/);
+            // Matches: "+1", "0", "0EV", "+1/3"
+            const singleMatch = value.match(/([+-]?\d+(?:\/\d+)?)(?:EV)?/i);
             if (singleMatch) {
-                const val = this.parseFraction(singleMatch[1]);
+                const val = this.parseFraction(singleMatch[1]!);
                 result.push({ name: 'Exposure Compensation Min', value: '0' });
                 result.push({ name: 'Exposure Compensation Max', value: val.toString() });
             }
@@ -450,10 +453,10 @@ export class SettingTransformer {
         const shadowMatch = value.match(/Shadows?:?\s*([+-]?\d+(?:\.\d+)?)/i);
 
         if (highlightMatch) {
-            result.push({ name: 'Highlight Tone', value: highlightMatch[1] });
+            result.push({ name: 'Highlight Tone', value: highlightMatch[1]! });
         }
         if (shadowMatch) {
-            result.push({ name: 'Shadow Tone', value: shadowMatch[1] });
+            result.push({ name: 'Shadow Tone', value: shadowMatch[1]! });
         }
 
         return result;
@@ -466,12 +469,12 @@ export class SettingTransformer {
         const parts = value.split(',').map(p => p.trim());
 
         if (parts.length >= 1) {
-            const strength = parts[0]; // Weak, Strong, Off
+            const strength = parts[0]!; // Weak, Strong, Off
             result.push({ name: 'Grain Effect', value: this.transformValue('Grain Effect', strength) });
         }
 
         if (parts.length >= 2) {
-            const size = parts[1]; // Small, Large
+            const size = parts[1]!; // Small, Large
             result.push({ name: 'Grain Effect Size', value: size });
         }
 
@@ -482,7 +485,7 @@ export class SettingTransformer {
         const match = str.match(/([+-]?\d+)(?:\/(\d+))?/);
         if (!match) return 0;
 
-        const numerator = parseInt(match[1]);
+        const numerator = parseInt(match[1]!);
         const denominator = match[2] ? parseInt(match[2]) : 1;
 
         return numerator / denominator;
@@ -496,10 +499,10 @@ export class SettingTransformer {
         const mgMatch = value.match(/MG\s*([+-]?\d+)/i);
 
         if (wcMatch) {
-            result.push({ name: 'Monochromatic Color WC', value: wcMatch[1] });
+            result.push({ name: 'Monochromatic Color WC', value: wcMatch[1]! });
         }
         if (mgMatch) {
-            result.push({ name: 'Monochromatic Color MG', value: mgMatch[1] });
+            result.push({ name: 'Monochromatic Color MG', value: mgMatch[1]! });
         }
 
         return result;

@@ -18,6 +18,10 @@ export interface ExportOptions {
     prettyPrint?: boolean;
     /** Include metadata in batch export (default: true) */
     includeMetadata?: boolean;
+    /** Filter to export only active recipes (default: false) */
+    activeOnly?: boolean;
+    /** Dry run mode - skip writing to disk (default: false) */
+    dryRun?: boolean;
 }
 
 /**
@@ -89,7 +93,7 @@ export class RecipeExportService {
 
         try {
             console.log('🔍 Fetching recipes from database...');
-            const rawRecipes = await this.queryService.fetchRecipes();
+            const rawRecipes = await this.queryService.fetchRecipes({ onlyActive: options.activeOnly });
             stats.totalRecipes = rawRecipes.length;
 
             console.log(`📦 Found ${rawRecipes.length} recipes`);
@@ -134,7 +138,11 @@ export class RecipeExportService {
             const batchExport = this.createBatchExport(recipes, options);
 
             // Write to file
-            await this.writeJsonFile(options.outputPath, batchExport, options.prettyPrint ?? true);
+            if (options.dryRun) {
+                console.log(`🔍 Dry run: would write to ${options.outputPath}`);
+            } else {
+                await this.writeJsonFile(options.outputPath, batchExport, options.prettyPrint ?? true);
+            }
 
             const duration = ((Date.now() - startTime) / 1000).toFixed(2);
             console.log(`\n✨ Export complete in ${duration}s`);
@@ -190,7 +198,11 @@ export class RecipeExportService {
             console.log('💾 Writing JSON file...');
 
             // Write single recipe (no metadata wrapper)
-            await this.writeJsonFile(options.outputPath, recipe, options.prettyPrint ?? true);
+            if (options.dryRun) {
+                console.log(`🔍 Dry run: would write to ${options.outputPath}`);
+            } else {
+                await this.writeJsonFile(options.outputPath, recipe, options.prettyPrint ?? true);
+            }
 
             console.log(`\n✨ Export complete`);
             console.log(`📄 Output: ${options.outputPath}`);

@@ -444,7 +444,7 @@ describe('ExportTransformerService', () => {
         width: 400,
         height: 300,
         altText: 'Thumbnail',
-        caption: null,
+        caption: '',
         sortOrder: 1,
       });
     });
