@@ -42,6 +42,7 @@
         "@tailwindcss/vite": "^4.1.17",
         "@types/node": "^22.0.0",
         "@types/pg": "^8.11.0",
+        "@vitest/coverage-v8": "^4.0.14",
         "eslint": "^9.0.0",
         "prettier": "^3.4.0",
         "tailwindcss": "^4.1.17",
