@@ -56,14 +56,14 @@ export class ExportTransformerService {
             // Core recipe fields
             name: rawRecipe.name,
             slug: rawRecipe.slug,
-            description: rawRecipe.description,
+            description: rawRecipe.description || '',
             publishDate: rawRecipe.publish_date,
             viewCount: rawRecipe.view_count,
             isFeatured: rawRecipe.is_featured,
             difficultyLevel: rawRecipe.difficulty_level as any,
             sourceType: rawRecipe.source_type as any,
-            sourceUrl: rawRecipe.source_url,
-            styleCategory: rawRecipe.style_category_name,
+            sourceUrl: rawRecipe.source_url || '',
+            styleCategory: rawRecipe.style_category_name || '',
 
             // Nested objects
             filmSimulation: this.transformFilmSimulation(rawRecipe),
@@ -82,10 +82,10 @@ export class ExportTransformerService {
         return {
             name: rawRecipe.author_name,
             slug: rawRecipe.author_slug,
-            bio: rawRecipe.author_bio,
-            websiteUrl: rawRecipe.author_website_url,
-            socialHandle: rawRecipe.author_social_handle,
-            socialPlatform: rawRecipe.author_social_platform,
+            bio: rawRecipe.author_bio || '',
+            websiteUrl: rawRecipe.author_website_url || '',
+            socialHandle: rawRecipe.author_social_handle || '',
+            socialPlatform: rawRecipe.author_social_platform || '',
             isVerified: rawRecipe.author_is_verified,
         };
     }
@@ -99,7 +99,7 @@ export class ExportTransformerService {
                 name: rawRecipe.sensor_name,
                 type: rawRecipe.sensor_type!,
                 megapixels: rawRecipe.sensor_megapixels,
-                description: rawRecipe.sensor_description,
+                description: rawRecipe.sensor_description || '',
             }
             : null;
 
@@ -125,7 +125,7 @@ export class ExportTransformerService {
         return {
             name: rawRecipe.film_sim_name,
             label: rawRecipe.film_sim_label,
-            description: rawRecipe.film_sim_description,
+            description: rawRecipe.film_sim_description || '',
         };
     }
 
@@ -198,8 +198,8 @@ export class ExportTransformerService {
             fullUrl: raw.full_url,
             width: raw.width,
             height: raw.height,
-            altText: raw.alt_text,
-            caption: raw.caption,
+            altText: raw.alt_text || '',
+            caption: raw.caption || '',
             sortOrder: raw.sort_order,
         }));
     }

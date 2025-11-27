@@ -31,10 +31,10 @@ export type TagCategory = 'subject' | 'mood' | 'technique' | 'season';
 export interface AuthorInfo {
     name: string;
     slug: string;
-    bio: string | null;
-    websiteUrl: string | null;
-    socialHandle: string | null;
-    socialPlatform: string | null;
+    bio: string;
+    websiteUrl: string;
+    socialHandle: string;
+    socialPlatform: string;
     isVerified: boolean;
 }
 
@@ -45,7 +45,7 @@ export interface SensorInfo {
     name: string;
     type: string;
     megapixels: number | null;
-    description: string | null;
+    description: string;
 }
 
 /**
@@ -72,7 +72,7 @@ export interface SystemInfo {
 export interface FilmSimulationInfo {
     name: string; // Internal name/slug
     label: string; // Display label
-    description: string | null;
+    description: string;
 }
 
 /**
@@ -142,8 +142,8 @@ export interface RecipeImage {
     fullUrl: string;
     width: number | null;
     height: number | null;
-    altText: string | null;
-    caption: string | null;
+    altText: string;
+    caption: string;
     sortOrder: number;
 }
 
@@ -155,14 +155,14 @@ export interface RecipeExport {
     // Core recipe information
     name: string;
     slug: string;
-    description: string | null;
+    description: string;
     publishDate: string | null; // ISO 8601 date format (YYYY-MM-DD)
     viewCount: number;
     isFeatured: boolean;
     difficultyLevel: DifficultyLevel | null;
     sourceType: SourceType | null;
-    sourceUrl: string | null;
-    styleCategory: string | null; // Style category name (simplified from object)
+    sourceUrl: string;
+    styleCategory: string; // Style category name (simplified from object)
 
     // Nested objects
     filmSimulation: FilmSimulationInfo;

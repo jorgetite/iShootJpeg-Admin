@@ -18,6 +18,8 @@ export interface ExportOptions {
     prettyPrint?: boolean;
     /** Include metadata in batch export (default: true) */
     includeMetadata?: boolean;
+    /** Filter to export only active recipes (default: false) */
+    activeOnly?: boolean;
 }
 
 /**
@@ -89,7 +91,7 @@ export class RecipeExportService {
 
         try {
             console.log('🔍 Fetching recipes from database...');
-            const rawRecipes = await this.queryService.fetchRecipes();
+            const rawRecipes = await this.queryService.fetchRecipes({ onlyActive: options.activeOnly });
             stats.totalRecipes = rawRecipes.length;
 
             console.log(`📦 Found ${rawRecipes.length} recipes`);

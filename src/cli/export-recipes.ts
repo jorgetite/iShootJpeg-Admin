@@ -8,6 +8,7 @@ async function main() {
             output: { type: 'string', short: 'o' },
             'recipe-id': { type: 'string' },
             'pretty': { type: 'boolean', default: true },
+            'active-only': { type: 'boolean' },
             help: { type: 'boolean', short: 'h' },
         },
     });
@@ -19,6 +20,7 @@ Usage: pnpm run cli:export -- --output <path-to-json> [options]
 Options:
   -o, --output <path>     Path to output JSON file (required)
       --recipe-id <id>    Export a single recipe by ID (optional)
+      --active-only       Export only active recipes (default: false)
       --pretty            Pretty print JSON output (default: true)
   -h, --help              Show this help message
 
@@ -31,6 +33,9 @@ Examples:
 
   # Export without pretty printing (compact JSON)
   pnpm run cli:export -- --output data/exports/recipes.json --pretty=false
+
+  # Export only active recipes
+  pnpm run cli:export -- --output data/exports/active-recipes.json --active-only
   `);
         process.exit(0);
     }
@@ -49,6 +54,7 @@ Examples:
     const outputPath = values.output;
     const recipeId = values['recipe-id'] ? parseInt(values['recipe-id'], 10) : null;
     const prettyPrint = values.pretty ?? true;
+    const activeOnly = values['active-only'] ?? false;
 
     const exportService = new RecipeExportService(process.env.DATABASE_URL);
 
@@ -57,7 +63,7 @@ Examples:
 
         const stats = recipeId
             ? await exportService.exportRecipeById(recipeId, { outputPath, prettyPrint })
-            : await exportService.exportRecipes({ outputPath, prettyPrint });
+            : await exportService.exportRecipes({ outputPath, prettyPrint, activeOnly });
 
         // Exit with error code if there were errors
         if (stats.errors > 0) {
