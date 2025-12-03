@@ -241,7 +241,42 @@ Initialize database with Fujifilm data:
 pnpm run db:init
 ```
 
-### 5. Start Development
+### 5. Import Authors (Required Before Importing Recipes)
+
+**Important:** Authors must be imported before importing recipes, as recipes require valid author references.
+
+Import authors from a CSV file:
+
+```bash
+pnpm run cli:import-authors -- --file=/path/to/authors.csv
+```
+
+**CSV Format:**
+
+The authors CSV file must have the following columns:
+
+| Column | Required | Description | Example |
+|--------|----------|-------------|---------|
+| name | Yes | Author's full name | "Ritchie Roesch" |
+| bio | No | Author biography | "Film photography enthusiast..." |
+| website_url | No | Author's website | "https://example.com" |
+| social_handle | No | Social media handle | "@username" |
+| social_platform | No | Social platform name | "Instagram" |
+| is_verified | No | Verification status (true/false) | "true" |
+
+**Example:**
+```csv
+name,bio,website_url,social_handle,social_platform,is_verified
+"Ritchie Roesch","Film photography expert","https://fujixweekly.com","@fujixweekly","Instagram",true
+"John Doe","Street photographer",,"@johndoe","Twitter",false
+```
+
+**Notes:**
+- Slugs are automatically generated from author names
+- The import is idempotent - existing authors (matched by name) will be updated
+- Authors without social media can omit those columns
+
+### 6. Start Development
 
 **Web Interface:**
 ```bash
@@ -272,6 +307,8 @@ See `.env.example` for a complete list of required environment variables. All co
 All CLI commands are executed via npm scripts. Commands are idempotent and can be safely retried.
 
 ### Import Recipes from CSV
+
+> **⚠️ Important:** You must [import authors](#5-import-authors-required-before-importing-recipes) before importing recipes, as each recipe requires a valid author reference.
 
 Import film simulation recipes from CSV files with intelligent transformation and comprehensive error handling.
 
@@ -456,21 +493,27 @@ pnpm run cli:export -- --output=/path/to/output.json
 ```
 
 **Options:**
-- `--output` or `-o` - Path to output JSON file (required unless `--dry-run` is used)
-- `--recipe-id` - Export a single recipe by ID (optional)
-- `--active-only` - Export only active recipes (default: false)
-- `--dry-run` - Preview export stats without writing to disk (default: false)
-- `--pretty` - Pretty print JSON output (default: true)
+| Option | Required | Description |
+|---|---|---|
+| `--output` or `-o` | Yes (unless `--dry-run`) | Path to output JSON file |
+| `--recipe-id` | No | Export a single recipe by ID |
+| `--active-only` | No | Export only active recipes (default: false) |
+| `--featured-only` | No | Export only featured recipes |
+| `--dry-run` | No | Preview export stats without writing to disk (default: false) |
+| `--pretty` | No | Pretty print JSON output (default: true) |
 
 **Examples:**
 ```bash
 # Export all recipes
 pnpm run cli:export -- --output data/exports/recipes.json
 
-# Export active recipes only
-pnpm run cli:export -- --output data/exports/active.json --active-only
+# Export only active recipes
+pnpm run cli:export -- --output data/exports/active-recipes.json --active-only
 
-# Dry run to preview stats (no file written)
+# Export only featured recipes
+pnpm run cli:export -- --output data/exports/featured-recipes.json --featured-only
+
+# Preview export stats
 pnpm run cli:export -- --dry-run
 
 # Export a single recipe by ID

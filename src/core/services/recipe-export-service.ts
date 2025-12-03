@@ -20,6 +20,8 @@ export interface ExportOptions {
     includeMetadata?: boolean;
     /** Filter to export only active recipes (default: false) */
     activeOnly?: boolean;
+    /** Filter to export only featured recipes (default: false) */
+    featuredOnly?: boolean;
     /** Dry run mode - skip writing to disk (default: false) */
     dryRun?: boolean;
 }
@@ -93,7 +95,10 @@ export class RecipeExportService {
 
         try {
             console.log('🔍 Fetching recipes from database...');
-            const rawRecipes = await this.queryService.fetchRecipes({ onlyActive: options.activeOnly });
+            const rawRecipes = await this.queryService.fetchRecipes({
+                onlyActive: options.activeOnly,
+                onlyFeatured: options.featuredOnly,
+            });
             stats.totalRecipes = rawRecipes.length;
 
             console.log(`📦 Found ${rawRecipes.length} recipes`);
