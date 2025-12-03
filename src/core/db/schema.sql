@@ -48,6 +48,16 @@ CREATE TABLE IF NOT EXISTS "film_simulations" (
     CONSTRAINT "film_simulations_system_name_unique" UNIQUE("system_id", "name")
 );
 
+-- Camera-Film Simulation Mapping (Many-to-Many)
+-- Maps which film simulations are available on each camera model
+CREATE TABLE IF NOT EXISTS "camera_film_simulations" (
+    "camera_model_id" integer NOT NULL,
+    "film_simulation_id" integer NOT NULL,
+    "added_via_firmware" boolean DEFAULT false,
+    "notes" text,
+    CONSTRAINT "camera_film_simulations_pk" PRIMARY KEY("camera_model_id", "film_simulation_id")
+);
+
 -- Style Categories (Color, B/W, IR)
 CREATE TABLE IF NOT EXISTS "style_categories" (
     "id" serial PRIMARY KEY,
@@ -271,6 +281,14 @@ BEGIN
         ALTER TABLE "film_simulations" ADD CONSTRAINT "film_simulations_system_id_fk" FOREIGN KEY ("system_id") REFERENCES "camera_systems"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 
+    -- Camera-Film Simulation Mapping
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'camera_film_simulations_camera_fk') THEN
+        ALTER TABLE "camera_film_simulations" ADD CONSTRAINT "camera_film_simulations_camera_fk" FOREIGN KEY ("camera_model_id") REFERENCES "camera_models"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'camera_film_simulations_film_sim_fk') THEN
+        ALTER TABLE "camera_film_simulations" ADD CONSTRAINT "camera_film_simulations_film_sim_fk" FOREIGN KEY ("film_simulation_id") REFERENCES "film_simulations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+
     -- Setting Definitions
     IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'setting_definitions_category_id_fk') THEN
         ALTER TABLE "setting_definitions" ADD CONSTRAINT "setting_definitions_category_id_fk" FOREIGN KEY ("category_id") REFERENCES "setting_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -376,6 +394,10 @@ CREATE INDEX IF NOT EXISTS "idx_camera_models_system_id" ON "camera_models"("sys
 
 -- Film Simulations
 CREATE INDEX IF NOT EXISTS "idx_film_simulations_system_id" ON "film_simulations"("system_id");
+
+-- Camera-Film Simulation Mapping
+CREATE INDEX IF NOT EXISTS "idx_camera_film_simulations_camera" ON "camera_film_simulations"("camera_model_id");
+CREATE INDEX IF NOT EXISTS "idx_camera_film_simulations_film_sim" ON "camera_film_simulations"("film_simulation_id");
 
 -- Setting Definitions
 CREATE INDEX IF NOT EXISTS "idx_setting_definitions_category_id" ON "setting_definitions"("category_id");

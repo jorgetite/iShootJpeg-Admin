@@ -5,10 +5,10 @@
 -- =====================================================
 
 -- Clear existing data (if any) - Use with caution in production
-TRUNCATE TABLE recipe_setting_ranges, recipe_setting_values, recipe_tags, images, recipes, 
-                recipe_tags, system_settings, setting_enum_values, setting_definitions, 
-                setting_categories, tags, style_categories, film_simulations, 
-                camera_models, sensors, camera_systems, authors CASCADE;
+TRUNCATE TABLE camera_film_simulations, recipe_setting_ranges, recipe_setting_values, 
+                recipe_tags, images, recipes, system_settings, setting_enum_values, 
+                setting_definitions, setting_categories, tags, style_categories, 
+                film_simulations, camera_models, sensors, camera_systems, authors CASCADE;
 
 -- =====================================================
 -- 1. CAMERA SYSTEMS
@@ -204,18 +204,7 @@ INSERT INTO film_simulations (id, name, system_id, label, description, is_active
 -- 5. CAMERA-FILM SIMULATION MAPPING
 -- =====================================================
 -- This table maps which film simulations are available on each camera
-
-CREATE TABLE camera_film_simulations (
-    camera_model_id integer NOT NULL,
-    film_simulation_id integer NOT NULL,
-    added_via_firmware boolean DEFAULT false,
-    notes text,
-    CONSTRAINT camera_film_simulations_pk PRIMARY KEY(camera_model_id, film_simulation_id),
-    CONSTRAINT camera_film_simulations_camera_fk 
-        FOREIGN KEY (camera_model_id) REFERENCES camera_models(id) ON DELETE CASCADE,
-    CONSTRAINT camera_film_simulations_film_sim_fk 
-        FOREIGN KEY (film_simulation_id) REFERENCES film_simulations(id) ON DELETE CASCADE
-);
+-- Table definition is in schema.sql
 
 -- X100 (X-Trans I) - Core simulations only
 INSERT INTO camera_film_simulations (camera_model_id, film_simulation_id) VALUES
@@ -573,7 +562,7 @@ INSERT INTO setting_enum_values (setting_definition_id, value, display_label, so
 (22, '32000', 'ISO 32000', 27, true),
 (22, '40000', 'ISO 40000', 28, true),
 (22, '51200', 'ISO 51200', 29, true),
-(22, '64000', 'ISO 64000', 30, true);
+(22, '64000', 'ISO 64000', 30, true),
 (22, 'AUTO', 'Auto', 0, true);
 
 -- Same for ISO Max (setting_definition_id = 23)
@@ -607,7 +596,7 @@ INSERT INTO setting_enum_values (setting_definition_id, value, display_label, so
 (23, '32000', 'ISO 32000', 27, true),
 (23, '40000', 'ISO 40000', 28, true),
 (23, '51200', 'ISO 51200', 29, true),
-(23, '64000', 'ISO 64000', 30, true);
+(23, '64000', 'ISO 64000', 30, true),
 (23, 'AUTO', 'Auto', 0, true);
 
 -- =====================================================
@@ -758,13 +747,6 @@ INSERT INTO tags (id, name, slug, category, usage_count, is_active, created_at) 
 (43, 'Portra', 'portra', 'film-stock', 0, true, now()),
 (44, 'Tri-X', 'tri-x', 'film-stock', 0, true, now()),
 (45, 'Ektar', 'ektar', 'film-stock', 0, true, now());
-
--- =====================================================
--- INDEXES FOR camera_film_simulations
--- =====================================================
-
-CREATE INDEX idx_camera_film_simulations_camera ON camera_film_simulations(camera_model_id);
-CREATE INDEX idx_camera_film_simulations_film_sim ON camera_film_simulations(film_simulation_id);
 
 -- =====================================================
 -- SUMMARY STATISTICS
