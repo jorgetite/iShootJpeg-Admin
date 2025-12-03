@@ -23,6 +23,7 @@
     },
     "include": [
         "src/**/*",
+        "tests/**/*",
         "nuxt.config.ts"
     ],
     "exclude": [

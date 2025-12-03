@@ -135,6 +135,21 @@ describe('RecipeExportService', () => {
       expect(mockTransformer.transformRecipe).toHaveBeenCalledTimes(3);
     });
 
+    it('should pass featuredOnly option to query service', async () => {
+      const rawRecipe = { id: 1, name: 'Test' };
+      mockQueryService.fetchRecipes.mockResolvedValue([rawRecipe]);
+
+      await service.exportRecipes({
+        outputPath: 'test-output',
+        featuredOnly: true
+      });
+
+      expect(mockQueryService.fetchRecipes).toHaveBeenCalledWith({
+        onlyActive: undefined,
+        onlyFeatured: true
+      });
+    });
+
     it('should fetch related data in parallel for each recipe', async () => {
       const rawRecipe = { id: 1, name: 'Test' };
       mockQueryService.fetchRecipes.mockResolvedValueOnce([rawRecipe]);
