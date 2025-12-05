@@ -38,9 +38,11 @@ export default defineEventHandler(async (event) => {
             source_url: body.source_url,
             source_type: body.source_type,
             publish_date: body.publish_date,
+            is_featured: body.is_featured || false,
             settings: body.settings,
             ranges: body.ranges,
             tag_ids: body.tag_ids,
+            images: body.images,
         };
 
         const recipe = await service.createRecipe(recipeData);

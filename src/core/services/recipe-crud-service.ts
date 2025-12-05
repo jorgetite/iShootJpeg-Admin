@@ -145,6 +145,11 @@ export class RecipeCrudService {
                 await this.insertTags(client, recipe.id, data.tag_ids);
             }
 
+            // Insert images
+            if (data.images && data.images.length > 0) {
+                await this.insertImages(client, recipe.id, data.images);
+            }
+
             await client.query('COMMIT');
 
             console.log(JSON.stringify({
@@ -265,6 +270,14 @@ export class RecipeCrudService {
                 }
             }
 
+            // Update images if provided
+            if (data.images !== undefined) {
+                await client.query('DELETE FROM images WHERE recipe_id = $1', [id]);
+                if (data.images.length > 0) {
+                    await this.insertImages(client, id, data.images);
+                }
+            }
+
             // Fetch updated recipe
             const recipeResult = await client.query('SELECT * FROM recipes WHERE id = $1', [id]);
             const recipe: Recipe = recipeResult.rows[0];
@@ -369,7 +382,7 @@ export class RecipeCrudService {
             }
 
             // Fetch all relations in parallel
-            const [author, system, cameraModel, sensor, filmSimulation, styleCategory, settings, ranges, tags] =
+            const [author, system, cameraModel, sensor, filmSimulation, styleCategory, settings, ranges, tags, images] =
                 await Promise.all([
                     this.db.getById<Author>('authors', recipe.author_id),
                     this.db.getById<CameraSystem>('camera_systems', recipe.system_id),
@@ -380,6 +393,7 @@ export class RecipeCrudService {
                     this.db.getAll<RecipeSettingValue>('recipe_setting_values', { recipe_id: id }),
                     this.db.getAll<RecipeSettingRange>('recipe_setting_ranges', { recipe_id: id }),
                     this.getRecipeTags(id),
+                    this.getRecipeImages(id),
                 ]);
 
             const recipeWithRelations: RecipeWithRelations = {
@@ -393,7 +407,7 @@ export class RecipeCrudService {
                 settings,
                 ranges,
                 tags,
-                images: [], // TODO: Implement image fetching
+                images,
             };
 
             console.log(JSON.stringify({
@@ -513,6 +527,64 @@ export class RecipeCrudService {
                  INNER JOIN recipe_tags rt ON rt.tag_id = t.id
                  WHERE rt.recipe_id = $1
                  ORDER BY t.name`,
+                [recipeId]
+            );
+            return result.rows;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Insert recipe images
+     */
+    private async insertImages(
+        client: PoolClient,
+        recipeId: number,
+        images: Array<{
+            image_type: 'thumbnail' | 'sample' | 'before' | 'after';
+            file_path: string;
+            thumb_url: string;
+            full_url: string;
+            width?: number;
+            height?: number;
+            file_size_bytes?: number;
+            alt_text?: string;
+            caption?: string;
+            sort_order?: number;
+        }>
+    ): Promise<void> {
+        for (const image of images) {
+            await client.query(
+                `INSERT INTO images (
+                    recipe_id, image_type, file_path, thumb_url, full_url,
+                    width, height, file_size_bytes, alt_text, caption, sort_order
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [
+                    recipeId,
+                    image.image_type,
+                    image.file_path,
+                    image.thumb_url,
+                    image.full_url,
+                    image.width || null,
+                    image.height || null,
+                    image.file_size_bytes || null,
+                    image.alt_text || null,
+                    image.caption || null,
+                    image.sort_order || 0
+                ]
+            );
+        }
+    }
+
+    /**
+     * Get images for a recipe
+     */
+    private async getRecipeImages(recipeId: number): Promise<any[]> {
+        const client = await this.db.getClient();
+        try {
+            const result = await client.query(
+                `SELECT * FROM images WHERE recipe_id = $1 ORDER BY sort_order ASC`,
                 [recipeId]
             );
             return result.rows;

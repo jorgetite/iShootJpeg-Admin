@@ -268,6 +268,18 @@ export type RecipeCreateInput = Omit<Recipe, 'id' | 'created_at' | 'updated_at' 
     settings?: Array<{ setting_definition_id: number; value: string; notes?: string }>;
     ranges?: Array<{ setting_definition_id: number; min_value?: string; max_value?: string; notes?: string }>;
     tag_ids?: number[];
+    images?: Array<{
+        image_type: 'thumbnail' | 'sample' | 'before' | 'after';
+        file_path: string;
+        thumb_url: string;
+        full_url: string;
+        width?: number;
+        height?: number;
+        file_size_bytes?: number;
+        alt_text?: string;
+        caption?: string;
+        sort_order?: number;
+    }>;
 };
 
 export type RecipeUpdateInput = Partial<RecipeCreateInput>;

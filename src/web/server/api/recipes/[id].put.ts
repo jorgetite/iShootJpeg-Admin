@@ -41,6 +41,7 @@ export default defineEventHandler(async (event) => {
             settings: body.settings,
             ranges: body.ranges,
             tag_ids: body.tag_ids,
+            images: body.images,
         };
 
         const recipe = await service.updateRecipe(id, updateData);

@@ -169,6 +169,90 @@
       />
     </div>
 
+    <!-- Images Section -->
+    <div class="form-section">
+      <h3>Images</h3>
+      
+      <div class="images-list">
+        <div v-for="(image, index) in form.images" :key="index" class="image-row">
+          <div class="image-preview-container">
+            <img :src="image.thumb_url || image.full_url" :alt="image.alt_text" class="image-preview" />
+          </div>
+          
+          <div class="image-details">
+            <div class="form-row compact">
+              <div class="form-group">
+                <label>Type</label>
+                <select v-model="image.image_type">
+                  <option value="thumbnail">Thumbnail</option>
+                  <option value="sample">Sample</option>
+                  <option value="before">Before</option>
+                  <option value="after">After</option>
+                </select>
+              </div>
+              <div class="form-group flex-grow">
+                <label>Caption</label>
+                <input v-model="image.caption" placeholder="Caption" />
+              </div>
+            </div>
+
+            <div class="form-row compact">
+              <div class="form-group flex-grow">
+                <label>Alt Text</label>
+                <input v-model="image.alt_text" placeholder="Alt Text (for accessibility)" />
+              </div>
+              <div class="form-group flex-grow">
+                <label>Thumbnail URL (Optional)</label>
+                <input v-model="image.thumb_url" placeholder="Thumbnail URL (defaults to full URL)" />
+              </div>
+            </div>
+          </div>
+
+          <div class="image-actions">
+            <div class="sort-controls">
+              <button 
+                type="button" 
+                class="btn-icon" 
+                @click="moveImage(index, -1)" 
+                :disabled="index === 0"
+                title="Move Up"
+              >
+                <span class="material-symbols-outlined">arrow_upward</span>
+              </button>
+              <button 
+                type="button" 
+                class="btn-icon" 
+                @click="moveImage(index, 1)" 
+                :disabled="index === form.images.length - 1"
+                title="Move Down"
+              >
+                <span class="material-symbols-outlined">arrow_downward</span>
+              </button>
+            </div>
+            <button type="button" class="btn btn-danger btn-sm" @click="removeImage(index)">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="add-image-row">
+          <div class="url-input-group">
+            <input 
+              v-model="newImageUrl" 
+              type="url" 
+              placeholder="Paste Image URL here (https://...)"
+              class="url-input"
+              @keyup.enter="addImageFromUrl"
+            />
+            <button type="button" class="btn btn-primary" @click="addImageFromUrl" :disabled="!newImageUrl">
+              <span class="material-symbols-outlined">add</span>
+              Add Image
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Actions -->
     <div class="form-actions">
       <button type="button" class="btn btn-secondary" @click="$emit('cancel')">
@@ -213,6 +297,7 @@ const form = ref({
   is_active: true,
   settings: [],
   ranges: [],
+  images: [],
   ...props.initialData
 });
 
@@ -277,6 +362,50 @@ const generateSlug = () => {
 
 const handleSubmit = () => {
   emit('submit', form.value);
+};
+
+// Image Management
+const newImageUrl = ref('');
+
+const addImageFromUrl = () => {
+  if (!newImageUrl.value) return;
+
+  form.value.images.push({
+    image_type: 'sample',
+    file_path: newImageUrl.value,
+    thumb_url: newImageUrl.value,
+    full_url: newImageUrl.value,
+    width: null,
+    height: null,
+    file_size_bytes: null,
+    alt_text: '',
+    caption: '',
+    sort_order: form.value.images.length
+  });
+
+  newImageUrl.value = '';
+};
+
+const removeImage = (index: number) => {
+  form.value.images.splice(index, 1);
+  updateSortOrder();
+};
+
+const moveImage = (index: number, direction: number) => {
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= form.value.images.length) return;
+  
+  const temp = form.value.images[index];
+  form.value.images[index] = form.value.images[newIndex];
+  form.value.images[newIndex] = temp;
+  
+  updateSortOrder();
+};
+
+const updateSortOrder = () => {
+  form.value.images.forEach((img: any, idx: number) => {
+    img.sort_order = idx;
+  });
 };
 </script>
 
@@ -376,5 +505,129 @@ input:disabled, select:disabled {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Image List Styles */
+.images-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.image-row {
+  display: flex;
+  gap: 1.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 1rem;
+  align-items: flex-start;
+}
+
+.image-preview-container {
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.image-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-details {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-row.compact {
+  gap: 1rem;
+  margin-bottom: 0;
+}
+
+.flex-grow {
+  flex-grow: 1;
+}
+
+.image-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.sort-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.btn-icon {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--color-text-light);
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-icon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.add-image-row {
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.1);
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.url-input-group {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.url-input {
+  flex-grow: 1;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-top: auto;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
 }
 </style>
