@@ -1,0 +1,28 @@
+import { SystemCrudService } from '../../../../../core/services/system-crud-service';
+
+export default defineEventHandler(async (event) => {
+    const id = parseInt(event.context.params?.id || '');
+
+    if (isNaN(id)) {
+        throw createError({
+            statusCode: 400,
+            message: 'Invalid ID'
+        });
+    }
+
+    const service = new SystemCrudService(process.env.DATABASE_URL!);
+    await service.connect();
+
+    try {
+        const settings = await service.getSystemSettings(id);
+        return settings;
+    } catch (error: any) {
+        console.error(`Failed to fetch settings for system ${id}:`, error);
+        throw createError({
+            statusCode: 500,
+            message: 'Failed to fetch system settings'
+        });
+    } finally {
+        await service.disconnect();
+    }
+});

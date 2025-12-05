@@ -34,7 +34,7 @@
         <!-- Camera Section -->
         <div class="nav-section">
           <span class="nav-section-title">Camera</span>
-          <NuxtLink to="/camera-systems" class="nav-item">
+          <NuxtLink to="/systems" class="nav-item">
             <span class="material-symbols-outlined">photo_camera</span>
             <span>Systems</span>
           </NuxtLink>
@@ -53,7 +53,8 @@
         </div>
 
         <!-- Settings Section -->
-        <div class="nav-section">
+        <!-- Settings Section -->
+        <!-- <div class="nav-section">
           <span class="nav-section-title">Settings</span>
           <NuxtLink to="/settings/categories" class="nav-item">
             <span class="material-symbols-outlined">category</span>
@@ -63,7 +64,7 @@
             <span class="material-symbols-outlined">tune</span>
             <span>Definitions</span>
           </NuxtLink>
-        </div>
+        </div> -->
       </nav>
     </aside>
 

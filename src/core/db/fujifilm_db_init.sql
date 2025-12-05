@@ -5,9 +5,9 @@
 -- =====================================================
 
 -- Clear existing data (if any) - Use with caution in production
-TRUNCATE TABLE camera_film_simulations, recipe_setting_ranges, recipe_setting_values, 
-                recipe_tags, images, recipes, system_settings, setting_enum_values, 
-                setting_definitions, setting_categories, tags, style_categories, 
+TRUNCATE TABLE camera_film_simulations, recipe_setting_ranges, recipe_setting_values,
+                recipe_tags, images, recipes, system_settings, setting_enum_values,
+                setting_definitions, setting_categories, tags, style_categories,
                 film_simulations, camera_models, sensors, camera_systems, authors CASCADE;
 
 -- =====================================================
@@ -198,7 +198,17 @@ INSERT INTO film_simulations (id, name, system_id, label, description, is_active
 (36, 'VELVIA', 3, 'Velvia/Vivid', 'Vivid colors', true, now()),
 (37, 'CLASSIC_CHROME', 3, 'Classic Chrome', 'Muted documentary style', true, now()),
 (38, 'CLASSIC_NEG', 3, 'Classic Negative', 'Classic negative film look', true, now()),
-(39, 'MONOCHROME', 3, 'Monochrome', 'Black and white', true, now());
+(39, 'MONOCHROME', 3, 'Monochrome', 'Black and white', true, now()),
+(40, 'ASTIA', 3, 'Astia/Soft', 'Soft color and tone for portraits', true, now()),
+(41, 'REALA_ACE', 3, 'Reala Ace', 'True-to-life color with enhanced tonality', true, now()),
+(42, 'NOSTALGIC_NEG', 3, 'Nostalgic Neg.', 'Warm vintage aesthetic inspired by American Color', true, now()),
+(43, 'ETERNA', 3, 'Eterna', 'Cinematic color and tone for video', true, now()),
+(44, 'ACROS', 3, 'Acros', 'Premium black and white with rich tonality', true, now()),
+(45, 'ACROS_YE', 3, 'Acros+Ye Filter', 'Acros with yellow filter effect', true, now()),
+(46, 'ACROS_R', 3, 'Acros+R Filter', 'Acros with red filter effect', true, now()),
+(47, 'ACROS_G', 3, 'Acros+G Filter', 'Acros with green filter effect', true, now()),
+(48, 'SEPIA', 3, 'Sepia', 'Warm brown-toned monochrome', true, now());
+
 
 -- =====================================================
 -- 5. CAMERA-FILM SIMULATION MAPPING
@@ -430,7 +440,7 @@ INSERT INTO setting_definitions (id, category_id, name, slug, data_type, unit, d
 (3, 4, 'Grain Effect', 'grain_effect', 'enum', null, 'Grain effect roughness', false, true, 1, now()),
 (4, 4, 'Grain Effect Size', 'grain_effect_size', 'enum', null, 'Grain effect size', false, true, 3, now()),
 
--- Color & Tone Category  
+-- Color & Tone Category
 (5, 2, 'Color Chrome Effect', 'color_chrome_effect', 'enum', null, 'Enhanced color depth in highlights', false, true, 1, now()),
 (6, 2, 'Color Chrome FX Blue', 'color_chrome_fx_blue', 'enum', null, 'Blue color chrome effect', false, true, 2, now()),
 (7, 2, 'Smooth Skin Effect', 'smooth_skin_effect', 'enum', null, 'Skin smoothing for portraits', false, true, 3, now()),
@@ -765,7 +775,7 @@ BEGIN
     SELECT COUNT(*) INTO total_gfx FROM camera_models WHERE system_id = 2;
     SELECT COUNT(*) INTO total_film_sims FROM film_simulations;
     SELECT COUNT(*) INTO total_settings FROM setting_definitions;
-    
+
     RAISE NOTICE '==============================================';
     RAISE NOTICE 'FUJIFILM DATABASE INITIALIZATION COMPLETE';
     RAISE NOTICE '==============================================';

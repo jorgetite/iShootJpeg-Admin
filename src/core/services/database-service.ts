@@ -439,6 +439,47 @@ export class DatabaseService {
     }
 
     /**
+     * Execute a raw SQL query
+     * 
+     * @param text - SQL query text
+     * @param params - Query parameters
+     * @returns Query result
+     */
+    async query<T extends any = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
+        const startTime = Date.now();
+        const correlationId = this.generateCorrelationId();
+
+        try {
+            const result = await this.pool.query<T>(text, params);
+
+            console.log(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                service: 'DatabaseService',
+                operation: 'query',
+                correlation_id: correlationId,
+                query: text,
+                row_count: result.rowCount,
+                duration_ms: Date.now() - startTime,
+            }));
+
+            return result;
+        } catch (error) {
+            console.error(JSON.stringify({
+                timestamp: new Date().toISOString(),
+                level: 'ERROR',
+                service: 'DatabaseService',
+                operation: 'query',
+                correlation_id: correlationId,
+                query: text,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                duration_ms: Date.now() - startTime,
+            }));
+            throw error;
+        }
+    }
+
+    /**
      * Generate a unique correlation ID for request tracing
      * 
      * @returns Correlation ID (timestamp + random)
