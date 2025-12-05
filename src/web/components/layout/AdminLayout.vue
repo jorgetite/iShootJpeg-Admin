@@ -43,7 +43,7 @@
             <span>Models</span>
           </NuxtLink>
           <NuxtLink to="/sensors" class="nav-item">
-            <span class="material-symbols-outlined">sensors</span>
+            <span class="material-symbols-outlined">grid_on</span>
             <span>Sensors</span>
           </NuxtLink>
           <NuxtLink to="/film-simulations" class="nav-item">

@@ -19,7 +19,7 @@ import type { PoolClient, QueryResult } from 'pg';
  * ```
  */
 export class DatabaseService {
-    private pool: Pool;
+    protected pool: Pool;
     private connectionString: string;
 
     /**
