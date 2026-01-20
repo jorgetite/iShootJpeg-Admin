@@ -195,7 +195,7 @@ export class ExportTransformerService {
         return rawImages.map((raw) => ({
             type: raw.image_type as any,
             thumbUrl: raw.thumb_url,
-            fullUrl: raw.full_url,
+            imageUrl: raw.image_url,
             width: raw.width,
             height: raw.height,
             altText: raw.alt_text || '',

@@ -139,7 +139,7 @@ export interface Tag {
 export interface RecipeImage {
     type: ImageType;
     thumbUrl: string;
-    fullUrl: string;
+    imageUrl: string;
     width: number | null;
     height: number | null;
     altText: string;

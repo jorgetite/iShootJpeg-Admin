@@ -48,10 +48,10 @@ async function main() {
         console.log('🔍 Verifying data...');
         const result = await client.query(`
             SELECT 
-                (SELECT COUNT(*) FROM camera_systems) as systems,
-                (SELECT COUNT(*) FROM camera_models) as cameras,
+                (SELECT COUNT(*) FROM systems) as systems,
+                (SELECT COUNT(*) FROM cameras) as cameras,
                 (SELECT COUNT(*) FROM sensors) as sensors,
-                (SELECT COUNT(*) FROM film_simulations) as film_sims,
+                (SELECT COUNT(*) FROM film_sims) as film_sims,
                 (SELECT COUNT(*) FROM setting_definitions) as settings,
                 (SELECT COUNT(*) FROM tags) as tags
         `);

@@ -162,10 +162,10 @@ export interface Recipe {
     id: number;
     author_id: number;
     system_id: number;
-    camera_model_id: number | null;
+    camera_id: number | null;
     sensor_id: number | null;
-    film_simulation_id: number;
-    style_category_id: number | null;
+    film_sim_id: number;
+    style_id: number | null;
 
     // Core info
     name: string;
@@ -221,10 +221,10 @@ export interface RecipeSettingRange {
 export interface Image {
     id: string; // UUID
     recipe_id: number;
-    image_type: 'thumbnail' | 'sample' | 'before' | 'after';
-    file_path: string;
+    image_type: 'primary' | 'secondary';
+    file_path: string | null;
     thumb_url: string;
-    full_url: string;
+    image_url: string;
     width: number | null;
     height: number | null;
     file_size_bytes: number | null;
@@ -250,10 +250,10 @@ export interface RecipeTag {
 export interface RecipeWithRelations extends Recipe {
     author: Author;
     system: CameraSystem;
-    camera_model: CameraModel | null;
+    camera: CameraModel | null;
     sensor: Sensor | null;
     film_simulation: FilmSimulation;
-    style_category: StyleCategory | null;
+    style: StyleCategory | null;
     settings: RecipeSettingValue[];
     ranges: RecipeSettingRange[];
     tags: Tag[];
@@ -269,10 +269,10 @@ export type RecipeCreateInput = Omit<Recipe, 'id' | 'created_at' | 'updated_at' 
     ranges?: Array<{ setting_definition_id: number; min_value?: string; max_value?: string; notes?: string }>;
     tag_ids?: number[];
     images?: Array<{
-        image_type: 'thumbnail' | 'sample' | 'before' | 'after';
-        file_path: string;
+        image_type: 'primary' | 'secondary';
+        file_path: string | null;
         thumb_url: string;
-        full_url: string;
+        image_url: string;
         width?: number;
         height?: number;
         file_size_bytes?: number;

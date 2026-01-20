@@ -30,7 +30,7 @@ export class SystemCrudService {
         const startTime = Date.now();
 
         try {
-            const query = `SELECT * FROM camera_systems ORDER BY ${orderBy}`;
+            const query = `SELECT * FROM systems ORDER BY ${orderBy}`;
             const result = await this.db.query<CameraSystem>(query);
 
             console.log(JSON.stringify({
@@ -63,7 +63,7 @@ export class SystemCrudService {
         const startTime = Date.now();
 
         try {
-            const query = 'SELECT * FROM camera_systems WHERE id = $1';
+            const query = 'SELECT * FROM systems WHERE id = $1';
             const result = await this.db.query<CameraSystem>(query, [id]);
 
             console.log(JSON.stringify({
@@ -99,7 +99,7 @@ export class SystemCrudService {
 
         try {
             const query = `
-                INSERT INTO camera_systems (name, manufacturer, is_active)
+                INSERT INTO systems (name, manufacturer, is_active)
                 VALUES ($1, $2, $3)
                 RETURNING *
             `;
@@ -120,6 +120,10 @@ export class SystemCrudService {
                 system_name: data.name,
                 duration_ms: Date.now() - startTime
             }));
+
+            if (!result.rows[0]) {
+                throw new Error('Failed to create system');
+            }
 
             return result.rows[0];
         } catch (error) {
@@ -151,7 +155,7 @@ export class SystemCrudService {
             }
 
             const query = `
-                UPDATE camera_systems 
+                UPDATE systems 
                 SET ${setClause}
                 WHERE id = $1
                 RETURNING *
@@ -174,6 +178,14 @@ export class SystemCrudService {
                 duration_ms: Date.now() - startTime
             }));
 
+            if (!result.rows[0]) {
+                throw new Error('Failed to create system');
+            }
+
+            if (!result.rows[0]) {
+                throw new Error('Failed to update system');
+            }
+
             return result.rows[0];
         } catch (error) {
             console.error(JSON.stringify({
@@ -195,7 +207,7 @@ export class SystemCrudService {
         const startTime = Date.now();
 
         try {
-            const query = 'DELETE FROM camera_systems WHERE id = $1';
+            const query = 'DELETE FROM systems WHERE id = $1';
             const result = await this.db.query(query, [id]);
 
             if (result.rowCount === 0) {
@@ -233,24 +245,73 @@ export class SystemCrudService {
         const startTime = Date.now();
 
         try {
-            const query = `
+            // Fetch all setting definitions with their categories
+            const defsQuery = `
                 SELECT 
-                    ss.system_id,
-                    ss.setting_definition_id,
-                    ss.is_supported,
-                    ss.notes,
-                    sd.name as setting_name,
-                    sd.slug as setting_slug,
+                    sd.id,
+                    sd.name,
+                    sd.slug,
                     sd.data_type,
-                    sd.category_id,
-                    sc.name as category_name
-                FROM system_settings ss
-                JOIN setting_definitions sd ON ss.setting_definition_id = sd.id
+                    sd.unit,
+                    sd.description,
+                    sd.is_required,
+                    sd.sort_order,
+                    sc.id as category_id,
+                    sc.name as category_name,
+                    sc.sort_order as category_sort_order,
+                    ss.notes as system_notes
+                FROM setting_definitions sd
                 JOIN setting_categories sc ON sd.category_id = sc.id
-                WHERE ss.system_id = $1
+                LEFT JOIN system_settings ss ON ss.setting_definition_id = sd.id AND ss.system_id = $1
+                WHERE sd.is_active = true
                 ORDER BY sc.sort_order, sd.sort_order
             `;
-            const result = await this.db.query(query, [systemId]);
+            const defsResult = await this.db.query(defsQuery, [systemId]);
+
+            // Fetch all enum values for enum-type settings
+            const enumQuery = `
+                SELECT 
+                    sev.id,
+                    sev.setting_definition_id,
+                    sev.value,
+                    sev.display_label,
+                    sev.sort_order
+                FROM setting_enum_values sev
+                WHERE sev.is_active = true
+                ORDER BY sev.setting_definition_id, sev.sort_order
+            `;
+            const enumResult = await this.db.query(enumQuery);
+
+            // Group enum values by setting_definition_id
+            const enumsByDefId: Record<number, any[]> = {};
+            enumResult.rows.forEach((row: any) => {
+                if (!enumsByDefId[row.setting_definition_id]) {
+                    enumsByDefId[row.setting_definition_id] = [];
+                }
+                enumsByDefId[row.setting_definition_id]?.push({
+                    id: row.id,
+                    value: row.value,
+                    display_label: row.display_label,
+                    sort_order: row.sort_order
+                });
+            });
+
+            // Combine definitions with their enum values
+            const settings = defsResult.rows.map((def: any) => ({
+                id: def.id,
+                name: def.name,
+                slug: def.slug,
+                data_type: def.data_type,
+                unit: def.unit,
+                description: def.description,
+                is_required: def.is_required,
+                sort_order: def.sort_order,
+                category_id: def.category_id,
+                category_name: def.category_name,
+                category_sort_order: def.category_sort_order,
+                system_notes: def.system_notes,
+                enum_values: enumsByDefId[def.id] || []
+            }));
 
             console.log(JSON.stringify({
                 timestamp: new Date().toISOString(),
@@ -259,11 +320,11 @@ export class SystemCrudService {
                 method: 'getSystemSettings',
                 correlation_id: correlationId,
                 system_id: systemId,
-                count: result.rows.length,
+                count: settings.length,
                 duration_ms: Date.now() - startTime
             }));
 
-            return result.rows;
+            return settings;
         } catch (error) {
             console.error(JSON.stringify({
                 timestamp: new Date().toISOString(),

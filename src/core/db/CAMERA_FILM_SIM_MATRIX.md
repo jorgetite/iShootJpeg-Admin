@@ -156,7 +156,7 @@ Some cameras received film simulations via firmware updates:
 ## Usage in Recipes
 
 When creating recipes:
-- Always check camera compatibility using the `camera_film_simulations` table
+- Always check camera compatibility using the `camera_film_sims` table
 - Filter recipes by sensor generation for cross-compatibility
 - X-Trans V recipes work on all X-Trans V cameras
 - X-Trans IV recipes may need tweaking for X-Trans III cameras

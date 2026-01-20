@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import type { PoolClient, QueryResult } from 'pg';
+import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 /**
  * Generic Database Service for CRUD Operations
@@ -115,7 +115,7 @@ export class DatabaseService {
      * const activeRecipes = await db.getAll<Recipe>('recipes', { is_active: true }, 'created_at DESC');
      * ```
      */
-    async getAll<T>(
+    async getAll<T extends QueryResultRow>(
         table: string,
         filters?: Record<string, any>,
         orderBy?: string
@@ -187,7 +187,7 @@ export class DatabaseService {
      * }
      * ```
      */
-    async getById<T>(table: string, id: number | string): Promise<T | null> {
+    async getById<T extends QueryResultRow>(table: string, id: number | string): Promise<T | null> {
         const startTime = Date.now();
         const correlationId = this.generateCorrelationId();
 
@@ -240,7 +240,7 @@ export class DatabaseService {
      * }, 'slug');
      * ```
      */
-    async create<T>(
+    async create<T extends QueryResultRow>(
         table: string,
         data: Record<string, any>,
         conflictColumn?: string
@@ -286,6 +286,9 @@ export class DatabaseService {
                 duration_ms: Date.now() - startTime,
             }));
 
+            if (!result.rows[0]) {
+                throw new Error(`Failed to create record in ${table}`);
+            }
             return result.rows[0];
         } catch (error) {
             console.error(JSON.stringify({
@@ -319,7 +322,7 @@ export class DatabaseService {
      * });
      * ```
      */
-    async update<T>(
+    async update<T extends QueryResultRow>(
         table: string,
         id: number | string,
         data: Record<string, any>
@@ -358,6 +361,10 @@ export class DatabaseService {
                 id,
                 duration_ms: Date.now() - startTime,
             }));
+
+            if (!result.rows[0]) {
+                throw new Error(`Failed to update record in ${table}`);
+            }
 
             return result.rows[0];
         } catch (error) {
@@ -445,7 +452,7 @@ export class DatabaseService {
      * @param params - Query parameters
      * @returns Query result
      */
-    async query<T extends any = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
+    async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
         const startTime = Date.now();
         const correlationId = this.generateCorrelationId();
 

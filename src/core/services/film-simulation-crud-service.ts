@@ -6,7 +6,7 @@ export class FilmSimulationCrudService extends DatabaseService {
      * Get all film simulations
      */
     async getAllFilmSimulations(systemId?: number): Promise<FilmSimulation[]> {
-        let query = 'SELECT * FROM film_simulations';
+        let query = 'SELECT * FROM film_sims';
         const params: any[] = [];
 
         if (systemId) {
@@ -25,7 +25,7 @@ export class FilmSimulationCrudService extends DatabaseService {
      */
     async getFilmSimulationById(id: number): Promise<FilmSimulation | null> {
         const result = await this.pool.query(
-            'SELECT * FROM film_simulations WHERE id = $1',
+            'SELECT * FROM film_sims WHERE id = $1',
             [id]
         );
         return result.rows[0] || null;
@@ -39,7 +39,7 @@ export class FilmSimulationCrudService extends DatabaseService {
         const systemId = input.system_id || 1;
 
         const result = await this.pool.query(
-            `INSERT INTO film_simulations (
+            `INSERT INTO film_sims (
                 name, system_id, label, description, is_active
             ) VALUES ($1, $2, $3, $4, $5)
             RETURNING *`,
@@ -87,7 +87,7 @@ export class FilmSimulationCrudService extends DatabaseService {
 
         values.push(id);
         const query = `
-            UPDATE film_simulations
+            UPDATE film_sims
             SET ${updates.join(', ')}
             WHERE id = $${paramIndex}
             RETURNING *
@@ -101,6 +101,6 @@ export class FilmSimulationCrudService extends DatabaseService {
      * Delete a film simulation
      */
     async deleteFilmSimulation(id: number): Promise<void> {
-        await this.pool.query('DELETE FROM film_simulations WHERE id = $1', [id]);
+        await this.pool.query('DELETE FROM film_sims WHERE id = $1', [id]);
     }
 }

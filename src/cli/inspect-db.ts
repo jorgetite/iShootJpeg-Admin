@@ -18,11 +18,11 @@ async function main() {
 
         const tables = [
             'authors',
-            'camera_systems',
-            'camera_models',
+            'film_sims',
+            'cameras',
             'sensors',
-            'film_simulations',
-            'style_categories',
+            'film_sims',
+            'styles',
             'recipes',
             'setting_categories',
             'setting_definitions',

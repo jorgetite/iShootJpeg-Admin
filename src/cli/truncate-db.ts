@@ -22,11 +22,11 @@ async function main() {
         await client.query('TRUNCATE TABLE recipes CASCADE');
         await client.query('TRUNCATE TABLE setting_definitions CASCADE');
         await client.query('TRUNCATE TABLE setting_categories CASCADE');
-        await client.query('TRUNCATE TABLE film_simulations CASCADE');
-        await client.query('TRUNCATE TABLE style_categories CASCADE');
+        await client.query('TRUNCATE TABLE cameras CASCADE');
+        await client.query('TRUNCATE TABLE styles CASCADE');
         await client.query('TRUNCATE TABLE sensors CASCADE');
-        await client.query('TRUNCATE TABLE camera_models CASCADE');
-        await client.query('TRUNCATE TABLE camera_systems CASCADE');
+        await client.query('TRUNCATE TABLE models CASCADE');
+        await client.query('TRUNCATE TABLE systems CASCADE');
         await client.query('TRUNCATE TABLE authors CASCADE');
 
         console.log('All tables truncated successfully.');

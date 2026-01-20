@@ -103,7 +103,7 @@ This SQL initialization script populates the iShootJpeg database with comprehens
 
 ### 5. Camera-Film Simulation Mapping
 
-The `camera_film_simulations` table maps which film simulations are available on each camera model:
+The `camera_film_sims` table maps which film simulations are available on each camera model:
 
 - **X-Trans I cameras**: 5 simulations (core set)
 - **X-Trans II cameras**: 8 simulations (+ Classic Chrome, PRO Neg)
@@ -216,7 +216,7 @@ The database uses an Entity-Attribute-Value (EAV) pattern for recipe settings to
 - Type safety through `data_type` field
 
 ### 2. Film Simulation Mapping
-The `camera_film_simulations` junction table enables:
+The `camera_film_sims` junction table enables:
 - Historical accuracy (which simulations were available when)
 - Firmware update tracking
 - Recipe compatibility checking
@@ -257,16 +257,16 @@ psql -U username -d ishootjpeg -f fujifilm_db_init.sql
 SELECT 
     cs.name as system,
     COUNT(cm.id) as camera_count
-FROM camera_systems cs
-LEFT JOIN camera_models cm ON cs.id = cm.system_id
+FROM systems cs
+LEFT JOIN models cm ON cs.id = cm.system_id
 GROUP BY cs.id, cs.name;
 
 -- Check film simulation distribution
 SELECT 
     cm.name as camera,
     COUNT(cfs.film_simulation_id) as sim_count
-FROM camera_models cm
-LEFT JOIN camera_film_simulations cfs ON cm.id = cfs.camera_model_id
+FROM models cm
+LEFT JOIN camera_film_sims cfs ON cm.id = cfs.camera_model_id
 WHERE cm.system_id = 1
 GROUP BY cm.id, cm.name
 ORDER BY cm.release_year DESC
@@ -290,9 +290,9 @@ SELECT
     cm.name,
     cm.release_year,
     s.name as sensor
-FROM camera_models cm
-JOIN camera_film_simulations cfs ON cm.id = cfs.camera_model_id
-JOIN film_simulations fs ON cfs.film_simulation_id = fs.id
+FROM models cm
+JOIN camera_film_sims cfs ON cm.id = cfs.camera_id
+JOIN film_sims fs ON cfs.film_sim_id = fs.id
 JOIN sensors s ON cm.sensor_id = s.id
 WHERE fs.name = 'CLASSIC_CHROME'
 ORDER BY cm.release_year;
@@ -303,9 +303,9 @@ ORDER BY cm.release_year;
 SELECT 
     fs.display_name,
     fs.description
-FROM film_simulations fs
-JOIN camera_film_simulations cfs ON fs.id = cfs.film_simulation_id
-JOIN camera_models cm ON cfs.camera_model_id = cm.id
+FROM film_sims fs
+JOIN camera_film_sims cfs ON fs.id = cfs.film_simulation_id
+JOIN cameras cm ON cfs.camera_model_id = cm.id
 WHERE cm.name = 'X100VI'
 ORDER BY fs.display_name;
 ```
@@ -338,13 +338,13 @@ All data was verified against multiple sources to ensure accuracy.
 
 ### Adding New Cameras
 1. Add sensor to `sensors` table (if new)
-2. Add camera to `camera_models` table
-3. Map film simulations in `camera_film_simulations`
+2. Add camera to `models` table
+3. Map film simulations in `camera_film_sims`
 4. Update sequence numbers if needed
 
 ### Adding New Film Simulations
-1. Add to `film_simulations` for each system
-2. Map to supporting cameras in `camera_film_simulations`
+1. Add to `film_sims` for each system
+2. Map to supporting cameras in `camera_film_sims`
 3. Consider backward compatibility
 
 ### Adding New Settings

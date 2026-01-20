@@ -181,7 +181,7 @@ export class ImportService {
                 // Start transaction for this recipe
                 await this.client.query('BEGIN');
 
-                await this.processRow(records[i], i);
+                await this.processRow(records[i]!, i);
 
                 // Commit if successful (or rollback if dry-run)
                 if (this.dryRun) {
@@ -205,12 +205,12 @@ export class ImportService {
                 // Log first error for debugging
                 if (this.errors.length === 0) {
                     console.error(`\n⚠️  First error at row ${i + 2}:`, error.message);
-                    console.error(`   Recipe: ${records[i].Name} by ${records[i].Creator}`);
+                    console.error(`   Recipe: ${records[i]!.Name} by ${records[i]!.Creator}`);
                 }
 
                 this.errors.push({
                     rowNumber: i + 2, // +2 for header and 0-index
-                    csvRow: records[i],
+                    csvRow: records[i]!,
                     errorMessage: error.message || 'Unknown error',
                 });
             }
@@ -364,8 +364,9 @@ export class ImportService {
         let trimmed = name.trim();
 
         // Apply mapping if exists
-        if (ImportService.SENSOR_MAP[trimmed]) {
-            trimmed = ImportService.SENSOR_MAP[trimmed];
+        const mappedSensor = ImportService.SENSOR_MAP[trimmed];
+        if (mappedSensor) {
+            trimmed = mappedSensor;
         }
 
         // Strategy 1: Exact match (case-sensitive)
@@ -416,14 +417,14 @@ export class ImportService {
 
         // Strategy 1: Exact match (case-sensitive)
         let result = await this.client.query(
-            'SELECT id FROM camera_models WHERE name = $1',
+            'SELECT id FROM cameras WHERE name = $1',
             [trimmed]
         );
         if (result.rows.length > 0) return result.rows[0].id;
 
         // Strategy 2: Case-insensitive match
         result = await this.client.query(
-            'SELECT id FROM camera_models WHERE LOWER(name) = LOWER($1)',
+            'SELECT id FROM cameras WHERE LOWER(name) = LOWER($1)',
             [trimmed]
         );
         if (result.rows.length > 0) return result.rows[0].id;
@@ -432,7 +433,7 @@ export class ImportService {
         // XPRO3 -> X-Pro3, X100v -> X100V, X-H2s -> X-H2S
         const normalized = trimmed.toLowerCase().replace(/[\s\-_]/g, '');
         result = await this.client.query(
-            `SELECT id, name FROM camera_models 
+            `SELECT id, name FROM cameras 
              WHERE LOWER(REPLACE(REPLACE(REPLACE(name, ' ', ''), '-', ''), '_', '')) = $1`,
             [normalized]
         );
@@ -446,7 +447,7 @@ export class ImportService {
         // Check for GFX cameras
         if (cameraName.toUpperCase().includes('GFX')) {
             const gfx = await this.client.query(
-                "SELECT id FROM camera_systems WHERE name LIKE '%GFX%'"
+                "SELECT id FROM systems WHERE name LIKE '%GFX%'"
             );
             if (gfx.rows.length > 0) return gfx.rows[0].id;
         }
@@ -454,7 +455,7 @@ export class ImportService {
         // Check for X-Half
         if (cameraName.toUpperCase().includes('XQ')) {
             const xhalf = await this.client.query(
-                "SELECT id FROM camera_systems WHERE name LIKE '%Half%'"
+                "SELECT id FROM systems WHERE name LIKE '%Half%'"
             );
             if (xhalf.rows.length > 0) return xhalf.rows[0].id;
         }
@@ -465,7 +466,7 @@ export class ImportService {
 
     private async getSystemFromCamera(cameraId: number): Promise<number> {
         const result = await this.client.query(
-            'SELECT system_id FROM camera_models WHERE id = $1',
+            'SELECT system_id FROM cameras WHERE id = $1',
             [cameraId]
         );
         return result.rows[0].system_id;
@@ -473,7 +474,7 @@ export class ImportService {
 
     private async getSystemName(systemId: number): Promise<string> {
         const result = await this.client.query(
-            'SELECT name FROM camera_systems WHERE id = $1',
+            'SELECT name FROM systems WHERE id = $1',
             [systemId]
         );
         return result.rows[0].name;
@@ -483,20 +484,21 @@ export class ImportService {
         let trimmed = label.trim();
 
         // Apply mapping if exists
-        if (ImportService.FILM_SIM_MAP[trimmed]) {
-            trimmed = ImportService.FILM_SIM_MAP[trimmed];
+        const mappedSim = ImportService.FILM_SIM_MAP[trimmed];
+        if (mappedSim) {
+            trimmed = mappedSim;
         }
 
         // Strategy 1: Exact match on label and system
         let result = await this.client.query(
-            'SELECT id FROM film_simulations WHERE label = $1 AND system_id = $2',
+            'SELECT id FROM film_sims WHERE label = $1 AND system_id = $2',
             [trimmed, systemId]
         );
         if (result.rows.length > 0) return result.rows[0].id;
 
         // Strategy 2: Case-insensitive match on label and system
         result = await this.client.query(
-            'SELECT id FROM film_simulations WHERE LOWER(label) = LOWER($1) AND system_id = $2',
+            'SELECT id FROM film_sims WHERE LOWER(label) = LOWER($1) AND system_id = $2',
             [trimmed, systemId]
         );
         if (result.rows.length > 0) return result.rows[0].id;
@@ -504,21 +506,21 @@ export class ImportService {
         // Strategy 3: Match by generated name (slug) and system
         const name = this.generateSlug(trimmed).toUpperCase().replace(/-/g, '_');
         result = await this.client.query(
-            'SELECT id FROM film_simulations WHERE name = $1 AND system_id = $2',
+            'SELECT id FROM film_sims WHERE name = $1 AND system_id = $2',
             [name, systemId]
         );
         if (result.rows.length > 0) return result.rows[0].id;
 
         // Strategy 4: Cross-system compatibility - exact label match
         result = await this.client.query(
-            'SELECT id FROM film_simulations WHERE label = $1 LIMIT 1',
+            'SELECT id FROM film_sims WHERE label = $1 LIMIT 1',
             [trimmed]
         );
         if (result.rows.length > 0) return result.rows[0].id;
 
         // Strategy 5: Cross-system compatibility - case-insensitive label match
         result = await this.client.query(
-            'SELECT id FROM film_simulations WHERE LOWER(label) = LOWER($1) LIMIT 1',
+            'SELECT id FROM film_sims WHERE LOWER(label) = LOWER($1) LIMIT 1',
             [trimmed]
         );
         if (result.rows.length > 0) return result.rows[0].id;
@@ -527,7 +529,7 @@ export class ImportService {
         // "Pro Neg. High" -> "proneghigh"
         const normalized = trimmed.toLowerCase().replace(/[\s\-_.]/g, '');
         result = await this.client.query(
-            `SELECT id FROM film_simulations 
+            `SELECT id FROM film_sims 
              WHERE LOWER(REPLACE(REPLACE(REPLACE(REPLACE(label, ' ', ''), '-', ''), '_', ''), '.', '')) = $1 
              AND system_id = $2`,
             [normalized, systemId]
@@ -536,7 +538,7 @@ export class ImportService {
 
         // Strategy 7: Fuzzy match cross-system
         result = await this.client.query(
-            `SELECT id FROM film_simulations 
+            `SELECT id FROM film_sims 
              WHERE LOWER(REPLACE(REPLACE(REPLACE(REPLACE(label, ' ', ''), '-', ''), '_', ''), '.', '')) = $1 
              LIMIT 1`,
             [normalized]
@@ -550,7 +552,7 @@ export class ImportService {
     private async lookupStyleCategory(name: string): Promise<number | null> {
         // Load cache if not loaded
         if (!this.styleCategoriesCache) {
-            const result = await this.client.query('SELECT id, name FROM style_categories');
+            const result = await this.client.query('SELECT id, name FROM styles');
             this.styleCategoriesCache = new Map();
             for (const row of result.rows) {
                 this.styleCategoriesCache.set(row.name.toLowerCase(), row.id);
@@ -749,16 +751,32 @@ export class ImportService {
         }
 
         // Insert new recipe
-        const result = await this.client.query(
-            `INSERT INTO recipes (
-                name, slug, author_id, system_id, sensor_id, camera_model_id, film_simulation_id,
-                style_category_id, difficulty_level, source_type, publish_date,
-                source_url, created_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
-             RETURNING id`,
-            [data.name, slug, data.authorId, systemId, data.sensorId, data.cameraId, data.filmSimId,
-            data.styleCategoryId, 'intermediate', 'curated', data.publishDate, data.sourceUrl]
-        );
+        const query = `
+                INSERT INTO recipes (
+                    name, slug, author_id, system_id, camera_id, sensor_id,
+                    film_sim_id, style_id, description, source_url, source_type,
+                    publish_date, view_count, is_featured, is_active, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true, now())
+                RETURNING id
+            `;
+
+        const values = [
+            data.name,
+            slug,
+            data.authorId,
+            systemId,
+            data.cameraId,
+            data.sensorId,
+            data.filmSimId,
+            data.styleCategoryId,
+            null, // description
+            data.sourceUrl,
+            'curated', // source_type
+            data.publishDate,
+            0, // view_count
+            false // is_featured
+        ];
+        const result = await this.client.query(query, values);
 
         this.stats.recipesCreated++;
         this.trackTableStat('recipes', 'insert');
@@ -814,7 +832,9 @@ export class ImportService {
             const parts = dateStr.split('/');
             if (parts.length === 3) {
                 const [month, day, year] = parts;
-                return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+                if (month && day && year) {
+                    return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+                }
             }
 
             return null;
@@ -997,7 +1017,7 @@ export class ImportService {
 
             this.errors.forEach(e => {
                 const parts = e.errorMessage.split(':');
-                const type = parts[0].trim();
+                const type = parts[0]?.trim() || 'Unknown';
                 const value = parts.slice(1).join(':').trim();
 
                 errorTypes.set(type, (errorTypes.get(type) || 0) + 1);

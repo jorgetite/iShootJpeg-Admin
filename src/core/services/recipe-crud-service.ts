@@ -84,13 +84,13 @@ export class RecipeCrudService {
             // Insert recipe
             const recipeData = {
                 name: data.name,
-                slug,
+                slug: slug,
                 author_id: data.author_id,
                 system_id: data.system_id,
-                camera_model_id: data.camera_model_id || null,
+                camera_id: data.camera_id || null,
                 sensor_id: data.sensor_id || null,
-                film_simulation_id: data.film_simulation_id,
-                style_category_id: data.style_category_id || null,
+                film_sim_id: data.film_sim_id,
+                style_id: data.style_id || null,
                 description: data.description || null,
                 difficulty_level: data.difficulty_level || 'intermediate',
                 source_url: data.source_url || null,
@@ -103,8 +103,8 @@ export class RecipeCrudService {
 
             const recipeResult = await client.query(
                 `INSERT INTO recipes (
-                    name, slug, author_id, system_id, camera_model_id, sensor_id,
-                    film_simulation_id, style_category_id, description, difficulty_level,
+                    name, slug, author_id, system_id, camera_id, sensor_id,
+                    film_sim_id, style_id, description, difficulty_level,
                     source_url, source_type, publish_date, view_count, is_featured, is_active
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                 RETURNING *`,
@@ -113,10 +113,10 @@ export class RecipeCrudService {
                     recipeData.slug,
                     recipeData.author_id,
                     recipeData.system_id,
-                    recipeData.camera_model_id,
+                    recipeData.camera_id,
                     recipeData.sensor_id,
-                    recipeData.film_simulation_id,
-                    recipeData.style_category_id,
+                    recipeData.film_sim_id,
+                    recipeData.style_id,
                     recipeData.description,
                     recipeData.difficulty_level,
                     recipeData.source_url,
@@ -216,8 +216,8 @@ export class RecipeCrudService {
 
             const updateFields = [
                 'name', 'description', 'difficulty_level', 'source_url', 'source_type',
-                'publish_date', 'is_featured', 'is_active', 'system_id', 'camera_model_id', 'sensor_id',
-                'film_simulation_id', 'style_category_id'
+                'publish_date', 'is_featured', 'is_active', 'system_id', 'camera_id', 'sensor_id',
+                'film_sim_id', 'style_id'
             ];
 
             for (const field of updateFields) {
@@ -382,14 +382,14 @@ export class RecipeCrudService {
             }
 
             // Fetch all relations in parallel
-            const [author, system, cameraModel, sensor, filmSimulation, styleCategory, settings, ranges, tags, images] =
+            const [author, system, camera, sensor, film_sim, style, settings, ranges, tags, images] =
                 await Promise.all([
                     this.db.getById<Author>('authors', recipe.author_id),
-                    this.db.getById<CameraSystem>('camera_systems', recipe.system_id),
-                    recipe.camera_model_id ? this.db.getById<CameraModel>('camera_models', recipe.camera_model_id) : Promise.resolve(null),
+                    this.db.getById<CameraSystem>('systems', recipe.system_id),
+                    recipe.camera_id ? this.db.getById<CameraModel>('cameras', recipe.camera_id) : Promise.resolve(null),
                     recipe.sensor_id ? this.db.getById<Sensor>('sensors', recipe.sensor_id) : Promise.resolve(null),
-                    this.db.getById<FilmSimulation>('film_simulations', recipe.film_simulation_id),
-                    recipe.style_category_id ? this.db.getById<StyleCategory>('style_categories', recipe.style_category_id) : Promise.resolve(null),
+                    this.db.getById<FilmSimulation>('film_sims', recipe.film_sim_id),
+                    recipe.style_id ? this.db.getById<StyleCategory>('styles', recipe.style_id) : Promise.resolve(null),
                     this.db.getAll<RecipeSettingValue>('recipe_setting_values', { recipe_id: id }),
                     this.db.getAll<RecipeSettingRange>('recipe_setting_ranges', { recipe_id: id }),
                     this.getRecipeTags(id),
@@ -400,10 +400,10 @@ export class RecipeCrudService {
                 ...recipe,
                 author: author!,
                 system: system!,
-                camera_model: cameraModel,
-                sensor,
-                film_simulation: filmSimulation!,
-                style_category: styleCategory,
+                camera: camera,
+                sensor: sensor,
+                film_simulation: film_sim!,
+                style: style,
                 settings,
                 ranges,
                 tags,
@@ -542,10 +542,10 @@ export class RecipeCrudService {
         client: PoolClient,
         recipeId: number,
         images: Array<{
-            image_type: 'thumbnail' | 'sample' | 'before' | 'after';
-            file_path: string;
+            image_type: 'primary' | 'secondary';
+            file_path: string | null;
             thumb_url: string;
-            full_url: string;
+            image_url: string;
             width?: number;
             height?: number;
             file_size_bytes?: number;
@@ -557,15 +557,15 @@ export class RecipeCrudService {
         for (const image of images) {
             await client.query(
                 `INSERT INTO images (
-                    recipe_id, image_type, file_path, thumb_url, full_url,
+                    recipe_id, image_type, file_path, thumb_url, image_url,
                     width, height, file_size_bytes, alt_text, caption, sort_order
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
                 [
                     recipeId,
                     image.image_type,
-                    image.file_path,
+                    image.file_path || null,
                     image.thumb_url,
-                    image.full_url,
+                    image.image_url,
                     image.width || null,
                     image.height || null,
                     image.file_size_bytes || null,
@@ -714,7 +714,7 @@ export class RecipeCrudService {
         system_id?: number;
         author_id?: number;
         sensor_id?: number;
-        film_simulation_id?: number;
+        film_sim_id?: number;
         limit?: number;
         offset?: number;
     }): Promise<{ recipes: any[]; total: number }> {
@@ -760,9 +760,9 @@ export class RecipeCrudService {
                 paramIndex++;
             }
 
-            if (params.film_simulation_id) {
-                conditions.push(`r.film_simulation_id = $${paramIndex}`);
-                values.push(params.film_simulation_id);
+            if (params.film_sim_id) {
+                conditions.push(`r.film_sim_id = $${paramIndex}`);
+                values.push(params.film_sim_id);
                 paramIndex++;
             }
 
@@ -784,13 +784,18 @@ export class RecipeCrudService {
                     r.*,
                     a.name as author_name,
                     cs.name as system_name,
+                    cm.name as camera_name,
                     s.name as sensor_name,
-                    fs.label as film_simulation_name
+                    fs.name as film_simulation_name,
+                    fs.label as film_simulation_label,
+                    sc.name as style_name
                 FROM recipes r
                 LEFT JOIN authors a ON r.author_id = a.id
-                LEFT JOIN camera_systems cs ON r.system_id = cs.id
+                LEFT JOIN systems cs ON r.system_id = cs.id
+                LEFT JOIN cameras cm ON r.camera_id = cm.id
                 LEFT JOIN sensors s ON r.sensor_id = s.id
-                LEFT JOIN film_simulations fs ON r.film_simulation_id = fs.id
+                LEFT JOIN film_sims fs ON r.film_sim_id = fs.id
+                LEFT JOIN styles sc ON r.style_id = sc.id
                 ${whereClause}
                 ORDER BY r.created_at DESC
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -838,11 +843,11 @@ export class RecipeCrudService {
         try {
             const [authors, systems, sensors, filmSimulations, styleCategories, cameraModels] = await Promise.all([
                 client.query('SELECT id, name FROM authors ORDER BY name ASC'),
-                client.query('SELECT id, name FROM camera_systems WHERE is_active = true ORDER BY name ASC'),
+                client.query('SELECT id, name FROM systems WHERE is_active = true ORDER BY name ASC'),
                 client.query('SELECT id, name FROM sensors ORDER BY name ASC'),
-                client.query('SELECT id, name, system_id FROM film_simulations WHERE is_active = true ORDER BY name ASC'),
-                client.query('SELECT id, name FROM style_categories WHERE is_active = true ORDER BY sort_order ASC'),
-                client.query('SELECT id, name, system_id FROM camera_models WHERE is_active = true ORDER BY name ASC')
+                client.query('SELECT id, name, system_id FROM film_sims WHERE is_active = true ORDER BY name ASC'),
+                client.query('SELECT id, name FROM styles WHERE is_active = true ORDER BY sort_order ASC'),
+                client.query('SELECT id, name, system_id FROM cameras WHERE is_active = true ORDER BY name ASC')
             ]);
 
             return {

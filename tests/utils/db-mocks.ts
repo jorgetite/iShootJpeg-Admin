@@ -4,12 +4,12 @@
  */
 
 import { vi } from 'vitest';
-import type { Pool, PoolClient, QueryResult } from 'pg';
+import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 /**
  * Create a mock QueryResult
  */
-export function createMockQueryResult<T = any>(
+export function createMockQueryResult<T extends QueryResultRow = any>(
   rows: T[] = [],
   rowCount: number | null = null,
   command = 'SELECT'

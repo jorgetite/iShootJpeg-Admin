@@ -12,8 +12,8 @@ export class CameraModelCrudService extends DatabaseService {
                 cs.name as system_name,
                 cs.manufacturer,
                 s.name as sensor_name
-            FROM camera_models cm
-            JOIN camera_systems cs ON cm.system_id = cs.id
+            FROM cameras cm
+            JOIN systems cs ON cm.system_id = cs.id
             LEFT JOIN sensors s ON cm.sensor_id = s.id
         `;
 
@@ -46,7 +46,7 @@ export class CameraModelCrudService extends DatabaseService {
      */
     async getCameraModelById(id: number): Promise<CameraModel | null> {
         const result = await this.pool.query(
-            'SELECT * FROM camera_models WHERE id = $1',
+            'SELECT * FROM cameras WHERE id = $1',
             [id]
         );
         return result.rows[0] || null;
@@ -57,7 +57,7 @@ export class CameraModelCrudService extends DatabaseService {
      */
     async createCameraModel(input: CameraModelCreateInput): Promise<CameraModel> {
         const result = await this.pool.query(
-            `INSERT INTO camera_models (
+            `INSERT INTO cameras (
                 system_id, name, sensor_id, release_year, is_active
             ) VALUES ($1, $2, $3, $4, $5)
             RETURNING *`,
@@ -110,7 +110,7 @@ export class CameraModelCrudService extends DatabaseService {
 
         values.push(id);
         const query = `
-            UPDATE camera_models
+            UPDATE cameras
             SET ${updates.join(', ')}
             WHERE id = $${paramIndex}
             RETURNING *
@@ -124,7 +124,7 @@ export class CameraModelCrudService extends DatabaseService {
      * Delete a camera model
      */
     async deleteCameraModel(id: number): Promise<void> {
-        await this.pool.query('DELETE FROM camera_models WHERE id = $1', [id]);
+        await this.pool.query('DELETE FROM cameras WHERE id = $1', [id]);
     }
 
     /**
@@ -146,8 +146,8 @@ export class CameraModelCrudService extends DatabaseService {
                 fs.*,
                 cfs.added_via_firmware,
                 cfs.notes as compatibility_notes
-            FROM film_simulations fs
-            JOIN camera_film_simulations cfs ON fs.id = cfs.film_simulation_id
+            FROM film_sims fs
+            JOIN camera_film_sims cfs ON fs.id = cfs.film_simulation_id
             WHERE cfs.camera_model_id = $1
             ORDER BY fs.name
         `;
@@ -162,11 +162,11 @@ export class CameraModelCrudService extends DatabaseService {
     async getAvailableFilmSimulationsForSystem(systemId: number, modelId: number): Promise<any[]> {
         const query = `
             SELECT fs.* 
-            FROM film_simulations fs
+            FROM film_sims fs
             WHERE fs.system_id = $1
             AND fs.id NOT IN (
                 SELECT film_simulation_id 
-                FROM camera_film_simulations 
+                FROM camera_film_sims 
                 WHERE camera_model_id = $2
             )
             ORDER BY fs.name
@@ -180,9 +180,9 @@ export class CameraModelCrudService extends DatabaseService {
      */
     async addFilmSimulationToModel(modelId: number, filmSimulationId: number, addedViaFirmware: boolean = false): Promise<void> {
         await this.pool.query(
-            `INSERT INTO camera_film_simulations (camera_model_id, film_simulation_id, added_via_firmware)
+            `INSERT INTO camera_film_sims (camera_model_id, film_sim_id, added_via_firmware)
              VALUES ($1, $2, $3)
-             ON CONFLICT (camera_model_id, film_simulation_id) DO UPDATE 
+             ON CONFLICT (camera_model_id, film_sim_id) DO UPDATE 
              SET added_via_firmware = EXCLUDED.added_via_firmware`,
             [modelId, filmSimulationId, addedViaFirmware]
         );
@@ -193,7 +193,7 @@ export class CameraModelCrudService extends DatabaseService {
      */
     async removeFilmSimulationFromModel(modelId: number, filmSimulationId: number): Promise<void> {
         await this.pool.query(
-            'DELETE FROM camera_film_simulations WHERE camera_model_id = $1 AND film_simulation_id = $2',
+            'DELETE FROM camera_film_sims WHERE camera_model_id = $1 AND film_sim_id = $2',
             [modelId, filmSimulationId]
         );
     }

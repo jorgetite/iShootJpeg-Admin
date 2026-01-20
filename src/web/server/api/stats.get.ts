@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
                 client.query('SELECT COUNT(*) as count FROM recipes WHERE is_active = true'),
                 client.query('SELECT COUNT(*) as count FROM authors'),
                 client.query('SELECT COUNT(*) as count FROM tags WHERE is_active = true'),
-                client.query('SELECT COUNT(*) as count FROM camera_systems WHERE is_active = true'),
+                client.query('SELECT COUNT(*) as count FROM systems WHERE is_active = true'),
             ]);
 
             const stats = {

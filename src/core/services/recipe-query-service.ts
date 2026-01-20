@@ -79,9 +79,9 @@ export interface RawTagData {
  * Raw image data from database
  */
 export interface RawImageData {
-    image_type: string;
+    image_type: 'primary' | 'secondary';
     thumb_url: string;
-    full_url: string;
+    image_url: string;
     width: number | null;
     height: number | null;
     alt_text: string | null;
@@ -183,11 +183,11 @@ export class RecipeQueryService {
 
             FROM recipes r
             INNER JOIN authors a ON r.author_id = a.id
-            INNER JOIN camera_systems cs ON r.system_id = cs.id
-            LEFT JOIN sensors s ON r.sensor_id = s.id
-            LEFT JOIN camera_models cm ON r.camera_model_id = cm.id
-            INNER JOIN film_simulations fs ON r.film_simulation_id = fs.id
-            LEFT JOIN style_categories sc ON r.style_category_id = sc.id
+            INNER JOIN systems sys ON r.system_id = sys.id
+            INNER JOIN sensors s ON r.sensor_id = s.id
+            LEFT JOIN cameras c ON r.camera_model_id = c.id
+            INNER JOIN film_sims fs ON r.film_simulation_id = fs.id
+            LEFT JOIN styles sc ON r.style_category_id = sc.id
             WHERE ($1::boolean IS FALSE OR r.is_active = true)
               AND ($2::boolean IS FALSE OR r.is_featured = true)
             ORDER BY r.created_at DESC
@@ -259,7 +259,7 @@ export class RecipeQueryService {
             SELECT
                 image_type,
                 thumb_url,
-                full_url,
+                image_url,
                 width,
                 height,
                 alt_text,

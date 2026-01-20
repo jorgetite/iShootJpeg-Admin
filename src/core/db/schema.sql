@@ -3,29 +3,17 @@
 -- =====================================================
 
 -- Camera Systems (Fujifilm, Nikon, Lumix, OM System)
-CREATE TABLE IF NOT EXISTS "camera_systems" (
+CREATE TABLE IF NOT EXISTS "systems" (
     "id" serial PRIMARY KEY,
     "name" varchar(50) NOT NULL,
     "manufacturer" varchar(100) NOT NULL,
     "is_active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp DEFAULT now() NOT NULL,
-    CONSTRAINT "camera_systems_name_unique" UNIQUE("name")
-);
-
--- Camera Models (X100VI, X-T5, Zf, etc.)
-CREATE TABLE IF NOT EXISTS "camera_models" (
-    "id" serial PRIMARY KEY,
-    "system_id" integer NOT NULL,
-    "name" varchar(100) NOT NULL,
-    "sensor_id" integer,
-    "release_year" integer,
-    "is_active" boolean DEFAULT true NOT NULL,
-    "created_at" timestamp DEFAULT now() NOT NULL,
-    CONSTRAINT "camera_models_system_name_unique" UNIQUE("system_id", "name"),
-    CONSTRAINT "camera_models_release_year_check" CHECK ("release_year" >= 2000 AND "release_year" <= 2100)
+    CONSTRAINT "systems_name_unique" UNIQUE("name")
 );
 
 -- Sensors (X-Trans III, X-Trans IV, X-Trans V, Bayer, etc.)
+-- NOTE: Must vary before cameras table
 CREATE TABLE IF NOT EXISTS "sensors" (
     "id" serial PRIMARY KEY,
     "name" varchar(100) NOT NULL,
@@ -36,37 +24,52 @@ CREATE TABLE IF NOT EXISTS "sensors" (
     CONSTRAINT "sensors_name_unique" UNIQUE("name")
 );
 
+-- Camera Models (X100VI, X-T5, Zf, etc.)
+CREATE TABLE IF NOT EXISTS cameras (
+    id SERIAL PRIMARY KEY,
+    system_id INTEGER NOT NULL REFERENCES systems(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    sensor_id INTEGER REFERENCES sensors(id),
+    release_year INTEGER,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cameras_sensor FOREIGN KEY (sensor_id) REFERENCES sensors(id),
+    CONSTRAINT cameras_release_year_check CHECK (release_year >= 2000 AND release_year <= 2100)
+);
+
+COMMENT ON TABLE cameras IS 'Specific camera bodies (e.g., X-T5, X100VI)';
+
 -- Film Simulations (Provia, Velvia, Classic Chrome, etc.)
-CREATE TABLE IF NOT EXISTS "film_simulations" (
+CREATE TABLE IF NOT EXISTS "film_sims" (
     "id" serial PRIMARY KEY,
     "name" varchar(60) NOT NULL,
-    "system_id" integer NOT NULL, -- Links to camera_systems
+    "system_id" integer NOT NULL, -- Links to systems
     "label" varchar(120) NOT NULL, -- e.g., "Classic Chrome" vs "Classic Neg"
     "description" text,
     "is_active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp DEFAULT now() NOT NULL,
-    CONSTRAINT "film_simulations_system_name_unique" UNIQUE("system_id", "name")
+    CONSTRAINT "film_sims_system_name_unique" UNIQUE("system_id", "name")
 );
 
 -- Camera-Film Simulation Mapping (Many-to-Many)
 -- Maps which film simulations are available on each camera model
-CREATE TABLE IF NOT EXISTS "camera_film_simulations" (
-    "camera_model_id" integer NOT NULL,
-    "film_simulation_id" integer NOT NULL,
+CREATE TABLE IF NOT EXISTS "camera_film_sims" (
+    "camera_id" integer NOT NULL,
+    "film_sim_id" integer NOT NULL,
     "added_via_firmware" boolean DEFAULT false,
     "notes" text,
-    CONSTRAINT "camera_film_simulations_pk" PRIMARY KEY("camera_model_id", "film_simulation_id")
+    CONSTRAINT "camera_film_sims_pk" PRIMARY KEY("camera_id", "film_sim_id")
 );
 
 -- Style Categories (Color, B/W, IR)
-CREATE TABLE IF NOT EXISTS "style_categories" (
+CREATE TABLE IF NOT EXISTS "styles" (
     "id" serial PRIMARY KEY,
     "name" varchar(30) NOT NULL,
     "description" text,
     "sort_order" integer DEFAULT 0 NOT NULL,
     "is_active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp DEFAULT now() NOT NULL,
-    CONSTRAINT "style_categories_name_unique" UNIQUE("name")
+    CONSTRAINT "styles_name_unique" UNIQUE("name")
 );
 
 -- =====================================================
@@ -165,10 +168,10 @@ CREATE TABLE IF NOT EXISTS "recipes" (
     "id" serial PRIMARY KEY,
     "author_id" integer NOT NULL,
     "system_id" integer NOT NULL,
-    "camera_model_id" integer, -- Nullable if recipe works across models
+    "camera_id" integer, -- Nullable if recipe works across models
     "sensor_id" integer,
-    "film_simulation_id" integer NOT NULL,
-    "style_category_id" integer,
+    "film_sim_id" integer NOT NULL,
+    "style_id" integer,
     
     -- Core Info
     "name" varchar(255) NOT NULL,
@@ -233,10 +236,10 @@ CREATE TABLE IF NOT EXISTS "recipe_setting_ranges" (
 CREATE TABLE IF NOT EXISTS "images" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
     "recipe_id" integer NOT NULL,
-    "image_type" varchar(20) NOT NULL, -- 'thumbnail', 'sample', 'before', 'after'
-    "file_path" varchar(500) NOT NULL, -- Path in storage system
+    "image_type" varchar(20) NOT NULL, -- 'primary', 'secondary'
+    "file_path" varchar(500), -- Path in storage system
     "thumb_url" varchar(500) NOT NULL,
-    "full_url" varchar(500) NOT NULL,
+    "image_url" varchar(500) NOT NULL,
     "width" integer,
     "height" integer,
     "file_size_bytes" integer,
@@ -245,7 +248,7 @@ CREATE TABLE IF NOT EXISTS "images" (
     "sort_order" integer DEFAULT 0 NOT NULL,
     "created_at" timestamp DEFAULT now() NOT NULL,
     CONSTRAINT "images_type_check" 
-        CHECK ("image_type" IN ('thumbnail', 'sample', 'before', 'after')),
+        CHECK ("image_type" IN ('primary', 'secondary')),
     CONSTRAINT "images_dimensions_positive" 
         CHECK ("width" > 0 AND "height" > 0)
 );
@@ -269,24 +272,24 @@ CREATE TABLE IF NOT EXISTS "recipe_tags" (
 DO $$
 BEGIN
     -- Camera Models
-    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'camera_models_system_id_fk') THEN
-        ALTER TABLE "camera_models" ADD CONSTRAINT "camera_models_system_id_fk" FOREIGN KEY ("system_id") REFERENCES "camera_systems"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'cameras_system_id_fk') THEN
+        ALTER TABLE "cameras" ADD CONSTRAINT "cameras_system_id_fk" FOREIGN KEY ("system_id") REFERENCES "systems"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'camera_models_sensor_id_fk') THEN
-        ALTER TABLE "camera_models" ADD CONSTRAINT "camera_models_sensor_id_fk" FOREIGN KEY ("sensor_id") REFERENCES "sensors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'cameras_sensor_id_fk') THEN
+        ALTER TABLE "cameras" ADD CONSTRAINT "cameras_sensor_id_fk" FOREIGN KEY ("sensor_id") REFERENCES "sensors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 
     -- Film Simulations
-    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'film_simulations_system_id_fk') THEN
-        ALTER TABLE "film_simulations" ADD CONSTRAINT "film_simulations_system_id_fk" FOREIGN KEY ("system_id") REFERENCES "camera_systems"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'film_sims_system_id_fk') THEN
+        ALTER TABLE "film_sims" ADD CONSTRAINT "film_sims_system_id_fk" FOREIGN KEY ("system_id") REFERENCES "systems"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 
     -- Camera-Film Simulation Mapping
-    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'camera_film_simulations_camera_fk') THEN
-        ALTER TABLE "camera_film_simulations" ADD CONSTRAINT "camera_film_simulations_camera_fk" FOREIGN KEY ("camera_model_id") REFERENCES "camera_models"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'camera_film_sims_camera_fk') THEN
+        ALTER TABLE "camera_film_sims" ADD CONSTRAINT "camera_film_sims_camera_fk" FOREIGN KEY ("camera_id") REFERENCES "cameras"("id") ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'camera_film_simulations_film_sim_fk') THEN
-        ALTER TABLE "camera_film_simulations" ADD CONSTRAINT "camera_film_simulations_film_sim_fk" FOREIGN KEY ("film_simulation_id") REFERENCES "film_simulations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'camera_film_sims_film_sim_fk') THEN
+        ALTER TABLE "camera_film_sims" ADD CONSTRAINT "camera_film_sims_film_sim_fk" FOREIGN KEY ("film_sim_id") REFERENCES "film_sims"("id") ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
 
     -- Setting Definitions
@@ -301,7 +304,7 @@ BEGIN
 
     -- System Settings
     IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'system_settings_system_id_fk') THEN
-        ALTER TABLE "system_settings" ADD CONSTRAINT "system_settings_system_id_fk" FOREIGN KEY ("system_id") REFERENCES "camera_systems"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        ALTER TABLE "system_settings" ADD CONSTRAINT "system_settings_system_id_fk" FOREIGN KEY ("system_id") REFERENCES "systems"("id") ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'system_settings_setting_definition_id_fk') THEN
         ALTER TABLE "system_settings" ADD CONSTRAINT "system_settings_setting_definition_id_fk" FOREIGN KEY ("setting_definition_id") REFERENCES "setting_definitions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -312,19 +315,19 @@ BEGIN
         ALTER TABLE "recipes" ADD CONSTRAINT "recipes_author_id_fk" FOREIGN KEY ("author_id") REFERENCES "authors"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'recipes_system_id_fk') THEN
-        ALTER TABLE "recipes" ADD CONSTRAINT "recipes_system_id_fk" FOREIGN KEY ("system_id") REFERENCES "camera_systems"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+        ALTER TABLE "recipes" ADD CONSTRAINT "recipes_system_id_fk" FOREIGN KEY ("system_id") REFERENCES "systems"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'recipes_camera_model_id_fk') THEN
-        ALTER TABLE "recipes" ADD CONSTRAINT "recipes_camera_model_id_fk" FOREIGN KEY ("camera_model_id") REFERENCES "camera_models"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'recipes_camera_id_fk') THEN
+        ALTER TABLE "recipes" ADD CONSTRAINT "recipes_camera_id_fk" FOREIGN KEY ("camera_id") REFERENCES "cameras"("id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'recipes_sensor_id_fk') THEN
         ALTER TABLE "recipes" ADD CONSTRAINT "recipes_sensor_id_fk" FOREIGN KEY ("sensor_id") REFERENCES "sensors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'recipes_film_simulation_id_fk') THEN
-        ALTER TABLE "recipes" ADD CONSTRAINT "recipes_film_simulation_id_fk" FOREIGN KEY ("film_simulation_id") REFERENCES "film_simulations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'recipes_film_sim_id_fk') THEN
+        ALTER TABLE "recipes" ADD CONSTRAINT "recipes_film_sim_id_fk" FOREIGN KEY ("film_sim_id") REFERENCES "film_sims"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'recipes_style_category_id_fk') THEN
-        ALTER TABLE "recipes" ADD CONSTRAINT "recipes_style_category_id_fk" FOREIGN KEY ("style_category_id") REFERENCES "style_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'recipes_style_id_fk') THEN
+        ALTER TABLE "recipes" ADD CONSTRAINT "recipes_style_id_fk" FOREIGN KEY ("style_id") REFERENCES "styles"("id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 
     -- Recipe Setting Values
@@ -363,9 +366,9 @@ END $$;
 
 -- Recipes - Common query patterns
 CREATE INDEX IF NOT EXISTS "idx_recipes_system_id" ON "recipes"("system_id");
-CREATE INDEX IF NOT EXISTS "idx_recipes_camera_model_id" ON "recipes"("camera_model_id");
-CREATE INDEX IF NOT EXISTS "idx_recipes_film_simulation_id" ON "recipes"("film_simulation_id");
-CREATE INDEX IF NOT EXISTS "idx_recipes_style_category_id" ON "recipes"("style_category_id");
+CREATE INDEX IF NOT EXISTS "idx_recipes_camera_id" ON "recipes"("camera_id");
+CREATE INDEX IF NOT EXISTS "idx_recipes_film_sim_id" ON "recipes"("film_sim_id");
+CREATE INDEX IF NOT EXISTS "idx_recipes_style_id" ON "recipes"("style_id");
 CREATE INDEX IF NOT EXISTS "idx_recipes_author_id" ON "recipes"("author_id");
 CREATE INDEX IF NOT EXISTS "idx_recipes_is_featured" ON "recipes"("is_featured") WHERE "is_featured" = true;
 CREATE INDEX IF NOT EXISTS "idx_recipes_is_active" ON "recipes"("is_active") WHERE "is_active" = true;
@@ -390,14 +393,14 @@ CREATE INDEX IF NOT EXISTS "idx_tags_category" ON "tags"("category");
 CREATE INDEX IF NOT EXISTS "idx_tags_usage_count" ON "tags"("usage_count" DESC);
 
 -- Camera Models
-CREATE INDEX IF NOT EXISTS "idx_camera_models_system_id" ON "camera_models"("system_id");
+CREATE INDEX IF NOT EXISTS "idx_cameras_system_id" ON "cameras"("system_id");
 
 -- Film Simulations
-CREATE INDEX IF NOT EXISTS "idx_film_simulations_system_id" ON "film_simulations"("system_id");
+CREATE INDEX IF NOT EXISTS "idx_film_sims_system_id" ON "film_sims"("system_id");
 
 -- Camera-Film Simulation Mapping
-CREATE INDEX IF NOT EXISTS "idx_camera_film_simulations_camera" ON "camera_film_simulations"("camera_model_id");
-CREATE INDEX IF NOT EXISTS "idx_camera_film_simulations_film_sim" ON "camera_film_simulations"("film_simulation_id");
+CREATE INDEX IF NOT EXISTS "idx_camera_film_sims_camera" ON "camera_film_sims"("camera_id");
+CREATE INDEX IF NOT EXISTS "idx_camera_film_sims_film_sim" ON "camera_film_sims"("film_sim_id");
 
 -- Setting Definitions
 CREATE INDEX IF NOT EXISTS "idx_setting_definitions_category_id" ON "setting_definitions"("category_id");
@@ -445,11 +448,11 @@ END $$;
 -- COMMENTS FOR DOCUMENTATION
 -- =====================================================
 
-COMMENT ON TABLE "camera_systems" IS 'Normalized table for camera system manufacturers (Fujifilm, Nikon, etc.)';
-COMMENT ON TABLE "camera_models" IS 'Specific camera models linked to their systems and sensors';
+COMMENT ON TABLE "systems" IS 'Normalized table for camera system manufacturers (Fujifilm, Nikon, etc.)';
+COMMENT ON TABLE "cameras" IS 'Specific camera models linked to their systems and sensors';
 COMMENT ON TABLE "sensors" IS 'Camera sensor types (X-Trans, Bayer, etc.) that affect recipe compatibility';
-COMMENT ON TABLE "film_simulations" IS 'Available film simulations per camera system';
-COMMENT ON TABLE "style_categories" IS 'Photography style categories for recipe classification';
+COMMENT ON TABLE "film_sims" IS 'Available film simulations per camera system';
+COMMENT ON TABLE "styles" IS 'Photography style categories for recipe classification';
 COMMENT ON TABLE "setting_definitions" IS 'EAV schema - defines all possible camera settings';
 COMMENT ON TABLE "setting_enum_values" IS 'Valid enum values for settings that have constrained options';
 COMMENT ON TABLE "recipe_setting_values" IS 'EAV values - actual setting values for each recipe';

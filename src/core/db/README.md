@@ -58,10 +58,10 @@ psql -U your_username -d database_name -f fujifilm_db_init.sql
 ```sql
 -- Check that data was loaded
 SELECT 
-    (SELECT COUNT(*) FROM camera_systems) as systems,
-    (SELECT COUNT(*) FROM camera_models) as cameras,
+    (SELECT COUNT(*) FROM systems) as systems,
+    (SELECT COUNT(*) FROM models) as cameras,
     (SELECT COUNT(*) FROM sensors) as sensors,
-    (SELECT COUNT(*) FROM film_simulations) as film_sims,
+    (SELECT COUNT(*) FROM film_sims) as film_sims,
     (SELECT COUNT(*) FROM setting_definitions) as settings,
     (SELECT COUNT(*) FROM tags) as tags;
 ```
@@ -78,15 +78,15 @@ systems | cameras | sensors | film_sims | settings | tags
 ```sql
 -- Find all X100VI film simulations
 SELECT fs.display_name 
-FROM film_simulations fs
-JOIN camera_film_simulations cfs ON fs.id = cfs.film_simulation_id
-JOIN camera_models cm ON cfs.camera_model_id = cm.id
+FROM film_sims fs
+JOIN camera_film_sims cfs ON fs.id = cfs.film_simulation_id
+JOIN models cm ON cfs.camera_model_id = cm.id
 WHERE cm.name = 'X100VI'
 ORDER BY fs.display_name;
 
 -- Get all X-Trans V cameras
 SELECT cm.name, cm.release_year, s.name as sensor
-FROM camera_models cm
+FROM models cm
 JOIN sensors s ON cm.sensor_id = s.id
 WHERE s.name LIKE '%X-Trans%V%'
 ORDER BY cm.release_year DESC;
@@ -145,7 +145,7 @@ ORDER BY cm.release_year DESC;
 ## 🔍 Key Features
 
 ### 1. Complete Camera-Film Simulation Mapping
-Every camera model is linked to its supported film simulations in the `camera_film_simulations` table, enabling:
+Every camera model is linked to its supported film simulations in the `camera_film_sims` table, enabling:
 - Recipe compatibility checking
 - Historical accuracy
 - Firmware update tracking
@@ -224,10 +224,10 @@ VALUES
 
 ```sql
 SELECT DISTINCT cm.name, cm.release_year
-FROM camera_models cm
-JOIN camera_film_simulations cfs ON cm.id = cfs.camera_model_id
-WHERE cfs.film_simulation_id = (
-    SELECT film_simulation_id 
+FROM cameras cm
+JOIN camera_film_sims cfs ON cm.id = cfs.camera_id
+WHERE cfs.film_sim_id = (
+    SELECT film_sim_id 
     FROM recipes 
     WHERE id = YOUR_RECIPE_ID
 )
@@ -240,8 +240,8 @@ ORDER BY cm.release_year DESC;
 -- Find all recipes with Classic Chrome
 SELECT r.name, cm.name as camera, a.name as author
 FROM recipes r
-JOIN film_simulations fs ON r.film_simulation_id = fs.id
-JOIN camera_models cm ON r.camera_model_id = cm.id
+JOIN film_sims fs ON r.film_simulation_id = fs.id
+JOIN cameras cm ON r.camera_model_id = cm.id
 JOIN authors a ON r.author_id = a.id
 WHERE fs.name = 'CLASSIC_CHROME'
 ORDER BY r.created_at DESC;

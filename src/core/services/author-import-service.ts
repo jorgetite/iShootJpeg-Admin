@@ -140,8 +140,8 @@ export class AuthorImportService {
         const platformMatch = text.match(/^(.+?)\s*\(([^)]+)\)\s*$/i);
 
         if (platformMatch) {
-            const handle = platformMatch[1].trim();
-            const platform = this.normalizePlatform(platformMatch[2].trim());
+            const handle = platformMatch[1]!.trim();
+            const platform = this.normalizePlatform(platformMatch[2]!.trim());
             return { handle, platform };
         }
 
