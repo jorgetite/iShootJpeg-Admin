@@ -621,7 +621,7 @@ export class RecipeCrudService {
                 params,
             }));
 
-            const conditions: string[] = ['is_active = true'];
+            const conditions: string[] = [];
             const values: any[] = [];
             let paramIndex = 1;
 
@@ -732,7 +732,7 @@ export class RecipeCrudService {
                 params,
             }));
 
-            const conditions: string[] = ['r.is_active = true'];
+            const conditions: string[] = [];
             const values: any[] = [];
             let paramIndex = 1;
 

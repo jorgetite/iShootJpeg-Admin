@@ -401,4 +401,47 @@ describe('RecipeCrudService', () => {
       await expect(service.deleteRecipe(1)).rejects.toThrow('Delete failed');
     });
   });
+  describe('searchRecipes', () => {
+    it('should not filter by is_active by default', async () => {
+      mockClient.query.mockImplementation((sql: string | { text: string }) => {
+        const queryText = typeof sql === 'string' ? sql : sql.text;
+        if (queryText.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: '10' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await service.searchRecipes({});
+
+      const call = mockClient.query.mock.calls.find((args: any[]) =>
+        typeof args[0] === 'string' && args[0].includes('SELECT * FROM recipes')
+      );
+
+      expect(call).toBeDefined();
+      const sql = call[0];
+      expect(sql).not.toContain('is_active = true');
+    });
+  });
+
+  describe('searchRecipesWithDetails', () => {
+    it('should not filter by is_active by default', async () => {
+      mockClient.query.mockImplementation((sql: string | { text: string }) => {
+        const queryText = typeof sql === 'string' ? sql : sql.text;
+        if (queryText.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: '10' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await service.searchRecipesWithDetails({});
+
+      const call = mockClient.query.mock.calls.find((args: any[]) =>
+        typeof args[0] === 'string' && args[0].includes('LEFT JOIN authors a')
+      );
+
+      expect(call).toBeDefined();
+      const sql = call[0];
+      expect(sql).not.toContain('r.is_active = true');
+    });
+  });
 });
