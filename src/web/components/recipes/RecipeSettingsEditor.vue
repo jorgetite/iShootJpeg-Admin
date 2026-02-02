@@ -30,22 +30,37 @@
 
             <!-- Enum Input -->
             <select 
-              v-if="def.data_type === 'enum'"
+              v-if="def.data_type === 'enum' || isCustomDropdown(def.slug)"
               :id="'setting-' + def.id"
               :value="getSettingValue(def.id)"
               @change="e => updateSetting(def.id, (e.target as HTMLSelectElement).value)"
             >
               <option value="">Default / None</option>
-              <option 
-                v-for="opt in def.enum_values" 
-                :key="opt.id" 
-                :value="opt.value"
-              >
-                {{ opt.display_label }}
-              </option>
+              
+              <!-- Standard Enums -->
+              <template v-if="def.data_type === 'enum'">
+                <option 
+                  v-for="opt in def.enum_values" 
+                  :key="opt.id" 
+                  :value="opt.value"
+                >
+                  {{ opt.display_label }}
+                </option>
+              </template>
+
+              <!-- Custom Dropdowns -->
+              <template v-else>
+                <option 
+                  v-for="opt in getCustomOptions(def.slug)" 
+                  :key="opt.value" 
+                  :value="opt.value"
+                >
+                  {{ opt.label }}
+                </option>
+              </template>
             </select>
 
-            <!-- Numeric/Integer Input -->
+            <!-- Numeric/Integer Input (Fallback) -->
             <input 
               v-else-if="['integer', 'numeric'].includes(def.data_type)"
               :id="'setting-' + def.id"
@@ -55,7 +70,7 @@
               @input="e => updateSetting(def.id, (e.target as HTMLInputElement).value)"
             />
 
-            <!-- Text Input -->
+            <!-- Text Input (Fallback) -->
             <input 
               v-else
               :id="'setting-' + def.id"
@@ -65,8 +80,7 @@
             />
             
             <small v-if="def.system_notes" class="notes">{{ def.system_notes }}</small>
-          </div>
-        </div>
+          </div>        </div>
       </div>
     </div>
   </div>
@@ -143,6 +157,89 @@ const updateSetting = (defId: number, value: string) => {
   }
 
   emit('update:modelValue', newSettings);
+};
+
+// Custom Dropdown Definitions
+const isCustomDropdown = (slug: string) => {
+  const customSlugs = [
+    'high_iso_nr',
+    'highlight_tone',
+    'shadow_tone',
+    'color',
+    'sharpness',
+    'clarity',
+    'wb_shift_red',
+    'wb_shift_blue',
+    'exposure_compensation_min',
+    'exposure_compensation_max'
+  ];
+  return customSlugs.includes(slug);
+};
+
+const getCustomOptions = (slug: string) => {
+  // Integer range -4 to +4
+  if (['high_iso_nr', 'color', 'sharpness'].includes(slug)) {
+    return Array.from({ length: 9 }, (_, i) => {
+      const val = i - 4;
+      return { value: val.toString(), label: val > 0 ? `+${val}` : val.toString() };
+    });
+  }
+
+  // Integer range -9 to +9
+  if (['wb_shift_red', 'wb_shift_blue'].includes(slug)) {
+    return Array.from({ length: 19 }, (_, i) => {
+      const val = i - 9;
+      return { value: val.toString(), label: val > 0 ? `+${val}` : val.toString() };
+    });
+  }
+
+  // Integer range -5 to +5
+  if (slug === 'clarity') {
+    return Array.from({ length: 11 }, (_, i) => {
+      const val = i - 5;
+      return { value: val.toString(), label: val > 0 ? `+${val}` : val.toString() };
+    });
+  }
+
+  // 0.5 steps from -2 to +4
+  if (['highlight_tone', 'shadow_tone'].includes(slug)) {
+    const options = [];
+    for (let i = -2; i <= 4; i += 0.5) {
+      options.push({ 
+        value: i.toString(), 
+        label: i > 0 ? `+${i}` : i.toString() 
+      });
+    }
+    return options;
+  }
+
+  // Exposure Compensation (-3 to +3 in 1/3 steps)
+  if (['exposure_compensation_min', 'exposure_compensation_max'].includes(slug)) {
+    const options = [];
+    for (let i = -9; i <= 9; i++) {
+        const val = i / 3;
+        // Format label nicely (e.g. -2 2/3)
+        let label = '';
+        const whole = Math.trunc(val);
+        const remainder = Math.abs(i % 3);
+
+        if (remainder === 0) {
+            label = whole > 0 ? `+${whole}` : whole.toString();
+        } else {
+            const sign = i < 0 ? '-' : '+';
+            const absWhole = Math.abs(whole);
+            const fraction = remainder === 1 ? '1/3' : '2/3';
+            label = absWhole === 0 ? `${sign}${fraction}` : `${sign}${absWhole} ${fraction}`;
+        }
+        
+        // Value stored as decimal string
+        options.push({ value: val.toFixed(2).replace(/\.00$/, ''), label });
+    }
+    return options.
+        sort((a, b) => parseFloat(a.value) - parseFloat(b.value));
+  }
+
+  return [];
 };
 </script>
 
