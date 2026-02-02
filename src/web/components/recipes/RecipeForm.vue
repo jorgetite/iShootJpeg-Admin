@@ -176,7 +176,7 @@
       <div class="images-list">
         <div v-for="(image, index) in form.images" :key="index" class="image-row">
           <div class="image-preview-container">
-            <img :src="image.thumb_url || image.full_url" :alt="image.alt_text" class="image-preview" />
+            <img :src="image.thumb_url || image.image_url" :alt="image.alt_text" class="image-preview" />
           </div>
           
           <div class="image-details">
@@ -184,10 +184,8 @@
               <div class="form-group">
                 <label>Type</label>
                 <select v-model="image.image_type">
-                  <option value="thumbnail">Thumbnail</option>
-                  <option value="sample">Sample</option>
-                  <option value="before">Before</option>
-                  <option value="after">After</option>
+                  <option value="primary">Primary</option>
+                  <option value="secondary">Secondary</option>
                 </select>
               </div>
               <div class="form-group flex-grow">
@@ -371,10 +369,10 @@ const addImageFromUrl = () => {
   if (!newImageUrl.value) return;
 
   form.value.images.push({
-    image_type: 'sample',
+    image_type: 'secondary',
     file_path: newImageUrl.value,
     thumb_url: newImageUrl.value,
-    full_url: newImageUrl.value,
+    image_url: newImageUrl.value,
     width: null,
     height: null,
     file_size_bytes: null,
