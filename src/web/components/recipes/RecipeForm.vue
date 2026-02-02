@@ -87,7 +87,7 @@
 
         <div class="form-group">
           <label for="camera_model">Camera Model</label>
-          <select id="camera_model" v-model="form.camera_model_id" :disabled="!form.system_id">
+          <select id="camera_model" v-model="form.camera_id" :disabled="!form.system_id">
             <option :value="null">Any / All Models</option>
             <option v-for="model in filteredModels" :key="model.id" :value="model.id">
               {{ model.name }}
@@ -109,7 +109,7 @@
 
         <div class="form-group">
           <label for="film_simulation">Film Simulation *</label>
-          <select id="film_simulation" v-model="form.film_simulation_id" required>
+          <select id="film_simulation" v-model="form.film_sim_id" required>
             <option value="" disabled>Select Simulation</option>
             <option 
               v-for="sim in filteredSimulations" 
@@ -124,7 +124,7 @@
 
       <div class="form-group">
         <label for="style_category">Style Category</label>
-        <select id="style_category" v-model="form.style_category_id">
+        <select id="style_category" v-model="form.style_id">
           <option :value="null">None</option>
           <option v-for="style in options.styleCategories" :key="style.id" :value="style.id">
             {{ style.name }}
@@ -283,10 +283,10 @@ const form = ref({
   slug: '',
   author_id: '',
   system_id: '',
-  camera_model_id: null,
+  camera_id: null,
   sensor_id: null,
-  film_simulation_id: '',
-  style_category_id: null,
+  film_sim_id: '',
+  style_id: null,
   description: '',
   source_url: '',
   source_type: null,
