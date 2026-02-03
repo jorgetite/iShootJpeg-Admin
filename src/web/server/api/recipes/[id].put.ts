@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
             source_type: body.source_type,
             publish_date: body.publish_date,
             is_featured: body.is_featured,
+            is_active: body.is_active,
             system_id: body.system_id,
             camera_id: body.camera_id,
             sensor_id: body.sensor_id,

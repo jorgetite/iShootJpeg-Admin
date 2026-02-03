@@ -264,7 +264,7 @@ export interface RecipeWithRelations extends Recipe {
  * Input types for creating/updating entities
  */
 
-export type RecipeCreateInput = Omit<Recipe, 'id' | 'created_at' | 'updated_at' | 'view_count' | 'is_active'> & {
+export type RecipeCreateInput = Omit<Recipe, 'id' | 'created_at' | 'updated_at' | 'view_count'> & {
     settings?: Array<{ setting_definition_id: number; value: string; notes?: string }>;
     ranges?: Array<{ setting_definition_id: number; min_value?: string; max_value?: string; notes?: string }>;
     tag_ids?: number[];
